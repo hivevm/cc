@@ -1,12 +1,8 @@
 name: HiveVM CC
-
 on: [push]
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
