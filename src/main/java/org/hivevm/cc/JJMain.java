@@ -3,6 +3,8 @@
 
 package org.hivevm.cc;
 
+import org.hivevm.cc.parser.JavaCCErrors;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -14,8 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.hivevm.cc.parser.JavaCCErrors;
 
 /**
  * The {@link JJMain} class.

@@ -3,9 +3,6 @@
 
 package org.hivevm.cc.generator;
 
-import java.io.IOException;
-import java.text.ParseException;
-
 import org.hivevm.cc.JavaCCRequest;
 import org.hivevm.cc.Language;
 import org.hivevm.cc.generator.cpp.CppFileGenerator;
@@ -20,21 +17,24 @@ import org.hivevm.cc.jjtree.ASTGrammar;
 import org.hivevm.cc.jjtree.ASTWriter;
 import org.hivevm.cc.jjtree.JJTreeOptions;
 
+import java.io.IOException;
+import java.text.ParseException;
+
 /**
  * The {@link ParserEngine} class.
  */
 public class ParserEngine {
 
-  private final LexerGenerator      lexerGenerator;
-  private final ParserGenerator     parserGenerator;
-  private final JJTreeCodeGenerator treeGenerator;
-  private final FileGenerator       otherFilesGenerator;
+  private final LexerGenerator   lexerGenerator;
+  private final ParserGenerator  parserGenerator;
+  private final ASTCodeGenerator treeGenerator;
+  private final FileGenerator    otherFilesGenerator;
 
   /**
    * Constructs an instance of {@link ParserEngine}.
    */
-  private ParserEngine(LexerGenerator lexerGenerator, ParserGenerator parserGenerator,
-      JJTreeCodeGenerator treeGenerator, FileGenerator otherFilesGenerator) {
+  private ParserEngine(LexerGenerator lexerGenerator, ParserGenerator parserGenerator, ASTCodeGenerator treeGenerator,
+      FileGenerator otherFilesGenerator) {
     this.lexerGenerator = lexerGenerator;
     this.parserGenerator = parserGenerator;
     this.treeGenerator = treeGenerator;
@@ -42,10 +42,12 @@ public class ParserEngine {
   }
 
   public final void generate(JavaCCRequest request) throws IOException, ParseException {
-    LexerData data = new LexerBuilder().build(request);
-    this.lexerGenerator.start(data);
-    this.parserGenerator.start(request);
-    this.otherFilesGenerator.handleRequest(request, data);
+    LexerData dataLexer = new LexerBuilder().build(request);
+    ParserData dataParser = new ParserBuilder().build(request);
+
+    this.lexerGenerator.start(dataLexer);
+    this.parserGenerator.start(dataParser);
+    this.otherFilesGenerator.handleRequest(request, dataLexer);
   }
 
   /**

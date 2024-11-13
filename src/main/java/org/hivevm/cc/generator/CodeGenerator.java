@@ -3,7 +3,7 @@
 
 package org.hivevm.cc.generator;
 
-import org.hivevm.cc.JJCodeBlock;
+import org.hivevm.cc.jjtree.ASTWriter;
 import org.hivevm.cc.parser.JavaCCParserConstants;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.utils.Encoding;
@@ -75,8 +75,8 @@ class CodeGenerator {
     }
     if ((t.kind == JavaCCParserConstants.STRING_LITERAL) || (t.kind == JavaCCParserConstants.CHARACTER_LITERAL)) {
       retval += Encoding.escapeUnicode(t.image);
-    } else if (t.image.startsWith(JJCodeBlock.Code.CODE)) {
-      retval += JJCodeBlock.Code.strip(t.image);
+    } else if (t.image.startsWith(ASTWriter.CodeBlock.CODE.image)) {
+      retval += ASTWriter.CodeBlock.CODE.strip(t.image);
     } else {
       retval += t.image;
     }

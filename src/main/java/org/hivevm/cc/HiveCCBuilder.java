@@ -4,12 +4,12 @@
 package org.hivevm.cc;
 
 
+import org.hivevm.cc.parser.Options;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.hivevm.cc.parser.Options;
 
 /**
  * The {@link HiveCCBuilder} class.
