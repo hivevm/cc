@@ -6,7 +6,7 @@ package org.hivevm.cc.semantic;
 /**
  * Describes a match, within a given lookahead.
  */
-public class MatchInfo {
+class MatchInfo {
 
 	int[] match;
 	int firstFreeLoc;

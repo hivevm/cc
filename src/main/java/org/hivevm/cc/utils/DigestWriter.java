@@ -3,6 +3,8 @@
 
 package org.hivevm.cc.utils;
 
+import org.hivevm.cc.HiveCC;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -130,21 +132,9 @@ public class DigestWriter extends PrintWriter {
    * Constructs an instance of {@link DigestWriter}.
    *
    * @param file
-   * @param version
    * @param options
    */
-  public static DigestWriter create(File file, Version version, DigestOptions options) throws FileNotFoundException {
-    return DigestWriter.create(new FileOutputStream(file), version, options, false);
-  }
-
-  /**
-   * Constructs an instance of {@link DigestWriter}.
-   *
-   * @param file
-   * @param version
-   * @param options
-   */
-  public static DigestWriter createCpp(File file, Version version, DigestOptions options) throws FileNotFoundException {
-    return DigestWriter.create(new FileOutputStream(file), version, options, true);
+  public static DigestWriter create(File file, DigestOptions options, boolean isCpp) throws FileNotFoundException {
+    return DigestWriter.create(new FileOutputStream(file), HiveCC.VERSION, options, isCpp);
   }
 }

@@ -3,13 +3,6 @@
 
 package org.hivevm.cc.generator.java;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Set;
-
 import org.hivevm.cc.HiveCC;
 import org.hivevm.cc.generator.JJTreeCodeGenerator;
 import org.hivevm.cc.jjtree.ASTNodeDescriptor;
@@ -17,9 +10,13 @@ import org.hivevm.cc.jjtree.ASTWriter;
 import org.hivevm.cc.jjtree.JJTreeGlobals;
 import org.hivevm.cc.jjtree.JJTreeOptions;
 import org.hivevm.cc.jjtree.NodeScope;
-import org.hivevm.cc.utils.DigestOptions;
-import org.hivevm.cc.utils.DigestWriter;
-import org.hivevm.cc.utils.Template;
+import org.hivevm.cc.utils.TemplateOptions;
+import org.hivevm.cc.utils.TemplateProvider;
+
+import java.util.Enumeration;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class JavaTreeGenerator extends JJTreeCodeGenerator {
 
@@ -41,7 +38,7 @@ public class JavaTreeGenerator extends JJTreeCodeGenerator {
   @Override
   protected final void insertOpenNodeCode(NodeScope ns, ASTWriter io, String indent, JJTreeOptions options) {
     String type = ns.getNodeDescriptor().getNodeType();
-    final String nodeClass;
+    String nodeClass;
     if ((options.getNodeClass().length() > 0) && !options.getMulti()) {
       nodeClass = options.getNodeClass();
     } else {
@@ -105,8 +102,8 @@ public class JavaTreeGenerator extends JJTreeCodeGenerator {
   public final void generateJJTree(JJTreeOptions o) {
     generateTreeConstants(o);
     generateVisitors(o);
-    generateTreeState(o);
     generateDefaultVisitors(o);
+    generateTreeState(o);
 
     // TreeClasses
     generateNodeClass(o);
@@ -114,56 +111,17 @@ public class JavaTreeGenerator extends JJTreeCodeGenerator {
     generateTreeClasses(o);
   }
 
-  private void generateTreeState(JJTreeOptions o) {
-    DigestOptions options = new DigestOptions(o);
+  private void generateTreeConstants(JJTreeOptions o) {
+    TemplateOptions options = new TemplateOptions();
+    options.add("NODE_NAMES", ASTNodeDescriptor.getNodeNames());
+    options.add("NODES", ASTNodeDescriptor.getNodeIds().size()).set("ordinal", i -> i).set("label",
+        i -> ASTNodeDescriptor.getNodeIds().get(i));
+
     options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
     options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
 
-    String filePrefix = new File(o.getOutputDirectory(), "JJT" + JJTreeGlobals.parserName + "State").getAbsolutePath();
-
-    File file = new File(filePrefix + ".java");
-    try (DigestWriter ostr = DigestWriter.create(file, HiveCC.VERSION, options)) {
-      Template.of(JavaTemplate.TREE_STATE, options).render(ostr);
-    } catch (IOException e) {
-      throw new Error(e.toString());
-    }
-  }
-
-  private static void generatePrologue(PrintWriter ostr, JJTreeOptions o) {
-    ostr.println("package " + o.getJavaPackage() + ";");
-    ostr.println();
-  }
-
-  private void generateTreeConstants(JJTreeOptions o) {
-    String name = JJTreeGlobals.parserName + "TreeConstants";
-    File file = new File(o.getOutputDirectory(), name + ".java");
-
-    try (PrintWriter ostr = DigestWriter.create(file, HiveCC.VERSION, new DigestOptions(o))) {
-      List<String> nodeIds = ASTNodeDescriptor.getNodeIds();
-      List<String> nodeNames = ASTNodeDescriptor.getNodeNames();
-
-      JavaTreeGenerator.generatePrologue(ostr, o);
-      ostr.println("public interface " + name);
-      ostr.println("{");
-
-      for (int i = 0; i < nodeIds.size(); ++i) {
-        String n = nodeIds.get(i);
-        ostr.println("  public final int " + n + " = " + i + ";");
-      }
-
-      ostr.println();
-      ostr.println();
-
-      ostr.println("  public static String[] jjtNodeName = {");
-      for (String n : nodeNames) {
-        ostr.println("    \"" + n + "\",");
-      }
-      ostr.println("  };");
-
-      ostr.println("}");
-    } catch (IOException e) {
-      throw new Error(e.toString());
-    }
+    TemplateProvider provider = JavaTemplate.TREE_CONSTANTS;
+    provider.render(o, options, JJTreeGlobals.parserName);
   }
 
   private void generateVisitors(JJTreeOptions o) {
@@ -171,38 +129,19 @@ public class JavaTreeGenerator extends JJTreeCodeGenerator {
       return;
     }
 
-    String name = JJTreeGlobals.parserName + "Visitor";
-    File file = new File(o.getOutputDirectory(), name + ".java");
+    Stream<String> nodes = ASTNodeDescriptor.getNodeNames().stream().filter(n -> !n.equals("void"));
+    TemplateOptions options = new TemplateOptions();
+    options.add("NODES", nodes.collect(Collectors.toList()));
+    options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
+    options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
+    options.set("RETURN_TYPE", o.getVisitorReturnType());
+    options.set("ARGUMENT_TYPE", o.getVisitorDataType().equals("") ? "Object" : o.getVisitorDataType());
+    options.set("EXCEPTION", JavaTreeGenerator.mergeVisitorException(o));
+    options.set("IS_MULTI", o.getMulti());
+    options.set("NODE_PREFIX", o.getNodePrefix());
 
-    try (PrintWriter ostr = DigestWriter.create(file, HiveCC.VERSION, new DigestOptions(o))) {
-      List<String> nodeNames = ASTNodeDescriptor.getNodeNames();
-
-      JavaTreeGenerator.generatePrologue(ostr, o);
-      ostr.println("public interface " + name);
-      ostr.println("{");
-
-      String ve = JavaTreeGenerator.mergeVisitorException(o);
-
-      String argumentType = "Object";
-      if (!o.getVisitorDataType().equals("")) {
-        argumentType = o.getVisitorDataType();
-      }
-
-      ostr.println("  public " + o.getVisitorReturnType() + " visit(Node node, " + argumentType + " data)" + ve + ";");
-      if (o.getMulti()) {
-        for (String n : nodeNames) {
-          if (n.equals("void")) {
-            continue;
-          }
-          String nodeType = o.getNodePrefix() + n;
-          ostr.println("  public " + o.getVisitorReturnType() + " visit(" + nodeType + " node, " + argumentType
-              + " data)" + ve + ";");
-        }
-      }
-      ostr.println("}");
-    } catch (IOException e) {
-      throw new Error(e.toString());
-    }
+    TemplateProvider provider = JavaTemplate.VISITOR;
+    provider.render(o, options, JJTreeGlobals.parserName);
   }
 
   private void generateDefaultVisitors(JJTreeOptions o) {
@@ -210,132 +149,106 @@ public class JavaTreeGenerator extends JJTreeCodeGenerator {
       return;
     }
 
-    String className = JJTreeGlobals.parserName + "DefaultVisitor";
-    File file = new File(o.getOutputDirectory(), className + ".java");
+    String argumentType = o.getVisitorDataType().equals("") ? "Object" : o.getVisitorDataType().trim();
+    String returnType = o.getVisitorReturnType().trim();
+    String returnValue = returnValue(returnType, argumentType);
+    boolean isVoidReturnType = "void".equals(returnType);
 
-    try (PrintWriter ostr = DigestWriter.create(file, HiveCC.VERSION, new DigestOptions(o))) {
-      List<String> nodeNames = ASTNodeDescriptor.getNodeNames();
+    Stream<String> nodes = ASTNodeDescriptor.getNodeNames().stream().filter(n -> !n.equals("void"));
+    TemplateOptions options = new TemplateOptions();
+    options.add("NODES", nodes.collect(Collectors.toList()));
+    options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
+    options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
+    options.set("RETURN_TYPE", o.getVisitorReturnType());
+    options.set("RETURN_VALUE", returnValue);
+    options.set("RETURN", isVoidReturnType ? "" : "return ");
+    options.set("ARGUMENT_TYPE", argumentType);
+    options.set("EXCEPTION", JavaTreeGenerator.mergeVisitorException(o));
+    options.set("IS_MULTI", o.getMulti());
+    options.set("NODE_PREFIX", o.getNodePrefix());
 
-      JavaTreeGenerator.generatePrologue(ostr, o);
-      ostr.println("public class " + className + " implements " + JJTreeGlobals.parserName + "Visitor{");
+    TemplateProvider provider = JavaTemplate.DEFAULT_VISITOR;
+    provider.render(o, options, JJTreeGlobals.parserName);
+  }
 
-      final String ve = JavaTreeGenerator.mergeVisitorException(o);
+  private void generateTreeState(JJTreeOptions o) {
+    TemplateOptions options = new TemplateOptions();
+    options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
+    options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
 
-      String argumentType = "Object";
-      if (!o.getVisitorDataType().equals("")) {
-        argumentType = o.getVisitorDataType().trim();
-      }
-
-      final String returnType = o.getVisitorReturnType().trim();
-      final boolean isVoidReturnType = "void".equals(returnType);
-
-      ostr.println("  public " + returnType + " defaultVisit(Node node, " + argumentType + " data)" + ve + "{");
-      ostr.println("    node.childrenAccept(this, data);");
-      ostr.print("    return");
-      if (!isVoidReturnType) {
-        if (returnType.equals(argumentType)) {
-          ostr.print(" data");
-        } else if ("boolean".equals(returnType)) {
-          ostr.print(" false");
-        } else if ("int".equals(returnType)) {
-          ostr.print(" 0");
-        } else if ("long".equals(returnType)) {
-          ostr.print(" 0L");
-        } else if ("double".equals(returnType)) {
-          ostr.print(" 0.0d");
-        } else if ("float".equals(returnType)) {
-          ostr.print(" 0.0f");
-        } else if ("short".equals(returnType)) {
-          ostr.print(" 0");
-        } else if ("byte".equals(returnType)) {
-          ostr.print(" 0");
-        } else if ("char".equals(returnType)) {
-          ostr.print(" '\u0000'");
-        } else {
-          ostr.print(" null");
-        }
-      }
-      ostr.println(";");
-      ostr.println("  }");
-
-      ostr.println("  public " + returnType + " visit(Node node, " + argumentType + " data)" + ve + "{");
-      ostr.println("    " + (isVoidReturnType ? "" : "return ") + "defaultVisit(node, data);");
-      ostr.println("  }");
-
-      if (o.getMulti()) {
-        for (String n : nodeNames) {
-          if (n.equals("void")) {
-            continue;
-          }
-          String nodeType = o.getNodePrefix() + n;
-          ostr.println(
-              "  public " + returnType + " visit(" + nodeType + " node, " + argumentType + " data)" + ve + "{");
-          ostr.println("    " + (isVoidReturnType ? "" : "return ") + "defaultVisit(node, data);");
-          ostr.println("  }");
-        }
-      }
-
-      ostr.println("}");
-    } catch (final IOException e) {
-      throw new Error(e.toString());
-    }
+    TemplateProvider provider = JavaTemplate.TREE_STATE;
+    provider.render(o, options, JJTreeGlobals.parserName);
   }
 
   private void generateTreeClass(JJTreeOptions o) {
-    String nodeType = "Tree";
-    File file = new File(o.getOutputDirectory(), nodeType + ".java");
-
-    DigestOptions options = new DigestOptions(o);
+    TemplateOptions options = new TemplateOptions();
     options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
     options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
-    try (DigestWriter writer = DigestWriter.create(file, HiveCC.VERSION, options)) {
-      Template.of(JavaTemplate.TREE, options).render(writer);
-    } catch (IOException e) {
-      throw new Error(e.toString());
-    }
+
+    TemplateProvider provider = JavaTemplate.TREE;
+    provider.render(o, options);
   }
 
   private void generateNodeClass(JJTreeOptions o) {
-    String nodeType = "Node";
-    File file = new File(o.getOutputDirectory(), nodeType + ".java");
-
-    DigestOptions options = new DigestOptions(o);
+    TemplateOptions options = new TemplateOptions();
     options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
     options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
-    try (DigestWriter writer = DigestWriter.create(file, HiveCC.VERSION, options)) {
-      Template.of(JavaTemplate.NODE, options).render(writer);
-    } catch (IOException e) {
-      throw new Error(e.toString());
-    }
+
+    TemplateProvider provider = JavaTemplate.NODE;
+    provider.render(o, options);
   }
 
   private void generateTreeClasses(JJTreeOptions o) {
+    TemplateOptions options = new TemplateOptions();
+    options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
+    options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
+    options.set(HiveCC.JJTREE_VISITOR_RETURN_VOID, Boolean.valueOf(o.getVisitorReturnType().equals("void")));
+
     Set<String> excludes = o.getExcudeNodes();
     for (String nodeType : nodesToGenerate()) {
       if (!o.getBuildNodeFiles() || excludes.contains(nodeType)) {
         continue;
       }
 
-      File file = new File(o.getOutputDirectory(), nodeType + ".java");
+      options.set(HiveCC.JJTREE_NODE_TYPE, nodeType);
 
-      DigestOptions options = new DigestOptions(o);
-      options.set(HiveCC.PARSER_NAME, JJTreeGlobals.parserName);
-      options.set(HiveCC.JJPARSER_JAVA_PACKAGE, o.getJavaPackage());
-      try (DigestWriter writer = DigestWriter.create(file, HiveCC.VERSION, options)) {
-        options.set(HiveCC.JJTREE_NODE_TYPE, nodeType);
-        options.set(HiveCC.JJTREE_VISITOR_RETURN_VOID, Boolean.valueOf(o.getVisitorReturnType().equals("void")));
-        Template.of(JavaTemplate.MULTI_NODE, options).render(writer);
-      } catch (IOException e) {
-        throw new Error(e.toString());
-      }
+      TemplateProvider provider = JavaTemplate.MULTI_NODE;
+      provider.render(o, options, nodeType);
     }
   }
 
   private static String mergeVisitorException(JJTreeOptions o) {
     String ve = o.getVisitorException();
-    if (!"".equals(ve)) {
-      ve = " throws " + ve;
+    return "".equals(ve) ? ve : " throws " + ve;
+  }
+
+  private static String returnValue(String returnType, String argumentType) {
+    boolean isVoidReturnType = "void".equals(returnType);
+    if (isVoidReturnType)
+      return "";
+
+    if (returnType.equals(argumentType))
+      return " data";
+
+    switch (returnType) {
+      case "boolean":
+        return " false";
+      case "int":
+        return " 0";
+      case "long":
+        return " 0L";
+      case "double":
+        return " 0.0d";
+      case "float":
+        return " 0.0f";
+      case "short":
+        return " 0";
+      case "byte":
+        return " 0";
+      case "char":
+        return " '\u0000'";
+      default:
+        return " null";
     }
-    return ve;
   }
 }

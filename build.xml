@@ -3,7 +3,6 @@
 	<property name="java-src" value="src/main/java" />
 	<property name="resources-src" value="src/main/resources" />
 	<property name="generated-src" value="src/main/generated" />
-	<property name="parser-generated-src" value="${generated-src}/org/hivevm/cc/parser" />
 	<property name="jjtree-generated-src" value="${generated-src}/org/hivevm/cc/jjtree" />
 
 	<property name="bootstrap-jar" value="bootstrap/javacc.jar" />
@@ -72,19 +71,19 @@
 
 		<!-- ReGenerate the Java CC Main Parser with the new jar -->
 		<java classname="${javacc-class-name}" classpath="${param-jar}" dir="${basedir}/src/main/resources" fork="true">
-			<arg value="-OUTPUT_DIRECTORY=${basedir}/${parser-generated-src}" />
+			<arg value="-OUTPUT_DIRECTORY=${basedir}/${generated-src}" />
 			<arg value="JavaCC.jj" />
 		</java>
 
 		<!-- ReGenerate the JJTree Parser Definition (from the tree definition) -->
 		<java classname="${jjtree-class-name}" classpath="${param-jar}" dir="${basedir}/src/main/resources" fork="true">
-			<arg value="-OUTPUT_DIRECTORY=${basedir}/${jjtree-generated-src}" />
+			<arg value="-OUTPUT_DIRECTORY=${basedir}/${generated-src}" />
 			<arg value="JJTree.jjt" />
 		</java>
 
 		<!-- Generate the JJTree Parser with the new jar  -->
-		<java classname="${javacc-class-name}" classpath="${param-jar}" dir="${basedir}/${jjtree-generated-src}" fork="true">
-			<arg value="-OUTPUT_DIRECTORY=${basedir}/${jjtree-generated-src}" />
+		<java classname="${javacc-class-name}" classpath="${param-jar}" dir="${basedir}/${generated-src}" fork="true">
+			<arg value="-OUTPUT_DIRECTORY=${basedir}/${generated-src}" />
 			<arg value="JJTree.jj" />
 		</java>
 

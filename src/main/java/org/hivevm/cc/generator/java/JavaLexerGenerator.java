@@ -3,13 +3,6 @@
 
 package org.hivevm.cc.generator.java;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-
 import org.hivevm.cc.generator.LexerData;
 import org.hivevm.cc.generator.LexerGenerator;
 import org.hivevm.cc.generator.LexerStateData;
@@ -19,9 +12,15 @@ import org.hivevm.cc.parser.JavaCCErrors;
 import org.hivevm.cc.parser.RStringLiteral.KindInfo;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.source.SourceWriter;
-import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.Encoding;
 import org.hivevm.cc.utils.TemplateOptions;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Locale;
 
 /**
  * Generate lexer.
@@ -66,8 +65,7 @@ public class JavaLexerGenerator extends LexerGenerator {
     options.set("jjCheckNAddStatesDualNeeded", data.jjCheckNAddStatesDualNeeded);
     options.set("jjCheckNAddStatesUnaryNeeded", data.jjCheckNAddStatesUnaryNeeded);
 
-    try (SourceWriter writer = new SourceWriter(data.getParserName() + "TokenManager", JavaTemplate.LEXER,
-        new DigestOptions(data.options(), options))) {
+    try (SourceWriter writer = new SourceWriter(data.getParserName() + "TokenManager", JavaTemplate.LEXER, data.options(), options)) {
       dumpClassHeader(writer, data);
       writer.writeTemplate();
     }

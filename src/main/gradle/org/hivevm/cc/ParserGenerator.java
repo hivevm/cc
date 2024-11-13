@@ -3,13 +3,6 @@
 
 package org.hivevm.cc;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import javax.inject.Inject;
-
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
@@ -18,13 +11,20 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
 import org.gradle.api.tasks.options.OptionValues;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import javax.inject.Inject;
+
 /**
- * The {@link GeneratorTask} class.
+ * The {@link ParserGenerator} class.
  */
-public abstract class GeneratorTask extends DefaultTask {
+public abstract class ParserGenerator extends DefaultTask {
 
   @Inject
-  public GeneratorTask() {
+  public ParserGenerator() {
     setGroup("HiveVM");
     setDescription("Generates a parser");
   }
@@ -41,7 +41,7 @@ public abstract class GeneratorTask extends DefaultTask {
 
   @TaskAction
   public void process() {
-    GeneratorConfig config = getProject().getExtensions().findByType(GeneratorConfig.class);
+    ParserProject config = getProject().getExtensions().findByType(ParserProject.class);
 
     if (config == null) {
       getProject().getLogger().error("No configuration defined");
@@ -49,8 +49,7 @@ public abstract class GeneratorTask extends DefaultTask {
     }
 
     Language defaultTarget = (config.target == null) ? Language.JAVA : config.target;
-
-    config.getSteps().forEach(s -> process(s, defaultTarget));
+    config.getTasks().forEach(s -> process(s, defaultTarget));
   }
 
   protected File getFile(String pathname) {
@@ -67,14 +66,13 @@ public abstract class GeneratorTask extends DefaultTask {
     return new File(projectDir, pathname);
   }
 
-
-  protected void process(GeneratorStep step, Language target) {
-    Language language = (step.target == null) ? target : step.target;
+  protected void process(ParserTask task, Language target) {
+    Language language = (task.target == null) ? target : task.target;
     HiveCCBuilder builder = HiveCCBuilder.of(language);
-    builder.setTargetDir(getFile(step.directory));
-    builder.setJJTreeFile(getFile(step.jjtFile));
-    builder.setJJFile(getFile(step.jjFile));
-    builder.setExcludes(step.excludes);
+    builder.setTargetDir(getFile(task.output));
+    builder.setJJTreeFile(getFile(task.jjtFile));
+    builder.setJJFile(getFile(task.jjFile));
+    builder.setExcludes(task.excludes);
     builder.build();
   }
 }

@@ -1,0 +1,8 @@
+#ifndef JAVACC_ONE_TREE_H
+#define JAVACC_ONE_TREE_H
+
+#include "Node.h"
+@foreach(node : NODES)
+#include {{node}}.h"
+@end
+#endif

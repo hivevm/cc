@@ -3,11 +3,6 @@
 
 package org.hivevm.cc.generator.cpp;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Iterator;
-import java.util.stream.Collectors;
-
 import org.hivevm.cc.HiveCC;
 import org.hivevm.cc.generator.ParserData;
 import org.hivevm.cc.generator.ParserGenerator;
@@ -28,9 +23,13 @@ import org.hivevm.cc.parser.ZeroOrMore;
 import org.hivevm.cc.parser.ZeroOrOne;
 import org.hivevm.cc.semantic.Semanticize;
 import org.hivevm.cc.source.CppWriter;
-import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.Encoding;
 import org.hivevm.cc.utils.TemplateOptions;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Iterator;
+import java.util.stream.Collectors;
 
 /**
  * Generate the parser.
@@ -61,8 +60,7 @@ public class CppParserGenerator extends ParserGenerator {
     options.add("EXPANSIONS", data.getExpansions()).set("phase",
         (e, p) -> generatePhase3Routine(data, e, data.getCount(e), p, data.options()));
 
-    DigestOptions digest = new DigestOptions(data.options(), options);
-    try (CppWriter writer = new CppWriter(data.getParserName(), CppTemplate.PARSER, digest)) {
+    try (CppWriter writer = new CppWriter(data.getParserName(), CppTemplate.PARSER, data.options(), options)) {
       writer.writeTemplate();
       writer.switchToHeader();
       writer.writeTemplateHeader();

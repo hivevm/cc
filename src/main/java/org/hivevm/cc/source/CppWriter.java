@@ -3,16 +3,18 @@
 
 package org.hivevm.cc.source;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-
 import org.hivevm.cc.generator.cpp.CppTemplate;
 import org.hivevm.cc.parser.JavaCCErrors;
+import org.hivevm.cc.parser.Options;
 import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.DigestWriter;
 import org.hivevm.cc.utils.Template;
+import org.hivevm.cc.utils.TemplateOptions;
 import org.hivevm.cc.utils.TemplateProvider;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
  * The {@link CppWriter} class.
@@ -30,8 +32,8 @@ public class CppWriter extends SourceWriter {
    * @param name
    * @param options
    */
-  public CppWriter(String name, CppTemplate provider, DigestOptions options) {
-    super(name, provider, options);
+  public CppWriter(String name, CppTemplate provider, Options options, TemplateOptions options2) {
+    super(name, provider, options, options2);
     this.provider = provider.getHeader();
     this.writer = (StringWriter) this.out;
     this.header.append("#ifndef JAVACC_" + name.replace('.', '_').toUpperCase() + "_H\n");
@@ -65,7 +67,7 @@ public class CppWriter extends SourceWriter {
   private void saveOutput(TemplateProvider provider, StringBuffer buffer, DigestOptions options) {
     CppWriter.fixupLongLiterals(buffer);
 
-    try (DigestWriter writer = provider.createDigestWriter(getName(), options)) {
+    try (DigestWriter writer = provider.createDigestWriter(options, getName())) {
       writer.print(buffer.toString());
     } catch (IOException ioe) {
       JavaCCErrors.fatal("Could not create output file: " + provider.getFilename(getName()));

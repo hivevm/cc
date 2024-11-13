@@ -3,13 +3,13 @@
 
 package org.hivevm.cc;
 
+import org.gradle.api.Project;
+
 import java.util.List;
 
 import javax.inject.Inject;
 
-import org.gradle.api.Project;
-
-public class GeneratorStep {
+public class ParserTask {
 
   private final Project project;
 
@@ -20,12 +20,12 @@ public class GeneratorStep {
   public String       jjFile;
   public String       jjtFile;
 
-  public String       directory;
+  public String       output;
   public List<String> excludes;
 
 
   @Inject
-  public GeneratorStep(Project project) {
+  public ParserTask(Project project) {
     this.project = project;
   }
 

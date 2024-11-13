@@ -1,0 +1,25 @@
+#ifndef JAVACC_{{NAME_UPPER}}TREECONSTANTS_H
+#define JAVACC_{{NAME_UPPER}}TREECONSTANTS_H
+
+#include "JavaCC.h"
+@if(NAMESPACE)
+namespace {{NAMESPACE}} {
+@fi
+enum {
+@foreach(node : NODES)
+    {{node.label}} = {{node.ordinal}},
+@end
+};
+
+@foreach(node : NODE_NAMES)
+static JJChar jjtNodeName_arr_{{node.ordinal}}[] = {{{node.chars}}0};
+@end
+static JJString jjtNodeName[] = {
+@foreach(node : NODE_NAMES)
+    jjtNodeName_arr_{{node.ordinal}},
+@end
+};
+@if(NAMESPACE)
+}
+@fi
+#endif

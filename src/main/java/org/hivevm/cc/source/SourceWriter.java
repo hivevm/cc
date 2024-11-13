@@ -3,15 +3,17 @@
 
 package org.hivevm.cc.source;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-
 import org.hivevm.cc.parser.JavaCCErrors;
+import org.hivevm.cc.parser.Options;
 import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.DigestWriter;
 import org.hivevm.cc.utils.Template;
+import org.hivevm.cc.utils.TemplateOptions;
 import org.hivevm.cc.utils.TemplateProvider;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
  * The {@link SourceWriter} class.
@@ -29,11 +31,11 @@ public class SourceWriter extends PrintWriter {
    * @param provider
    * @param options
    */
-  public SourceWriter(String name, TemplateProvider provider, DigestOptions options) {
+  public SourceWriter(String name, TemplateProvider provider, Options options, TemplateOptions options2) {
     super(new StringWriter());
     this.name = name;
     this.provider = provider;
-    this.options = options;
+    this.options = new DigestOptions(options, options2);
   }
 
   /**
@@ -73,7 +75,7 @@ public class SourceWriter extends PrintWriter {
    */
   @Override
   public void close() {
-    try (DigestWriter writer = getProvider().createDigestWriter(getName(), this.options)) {
+    try (DigestWriter writer = getProvider().createDigestWriter(getOptions(), getName())) {
       writer.print(toString());
     } catch (IOException e) {
       JavaCCErrors.fatal("Could not create output file: " + getProvider().getFilename(name));

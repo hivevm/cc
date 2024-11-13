@@ -12,14 +12,13 @@ import org.gradle.api.plugins.ExtensionContainer;
  */
 public class GradlePlugin implements Plugin<Project> {
 
-  public static final String CONFIG = "hiveCC";
-
+  private static final String CONFIG = "parserProject";
 
   @Override
   public void apply(Project project) {
     ExtensionContainer extension = project.getExtensions();
-    extension.create(GradlePlugin.CONFIG, GeneratorConfig.class);
+    extension.create(GradlePlugin.CONFIG, ParserProject.class);
 
-    project.getTasks().register("generateParser", GeneratorTask.class);
+    project.getTasks().register("generateParser", ParserGenerator.class);
   }
 }

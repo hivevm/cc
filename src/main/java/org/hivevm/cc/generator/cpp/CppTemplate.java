@@ -3,13 +3,12 @@
 
 package org.hivevm.cc.generator.cpp;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-
-import org.hivevm.cc.HiveCC;
 import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.DigestWriter;
 import org.hivevm.cc.utils.TemplateProvider;
+
+import java.io.File;
+import java.io.FileNotFoundException;
 
 
 /**
@@ -51,8 +50,11 @@ public enum CppTemplate implements TemplateProvider {
   TOKENNANAGERHANDLER_H("TokenManagerErrorHandler", "h"),
 
   TREE("Tree", "h"),
+  TREE_ONE("TreeOne", "h", "%sTree"),
   TREESTATE("TreeState"),
-  TREESTATE_H("TreeState", "h");
+  TREESTATE_H("TreeState", "h"),
+  TREE_CONSTANTS("TreeConstants", "h", "%sTreeConstants"),
+  VISITOR("Visitor", "h", "%sVisitor");
 
   private final String      name;
   private final String      type;
@@ -100,12 +102,12 @@ public enum CppTemplate implements TemplateProvider {
 
   @Override
   public final DigestWriter createDigestWriter(DigestOptions options) throws FileNotFoundException {
-    return createDigestWriter(getFilename(null), options);
+    return createDigestWriter(options, getFilename(null));
   }
 
   @Override
-  public final DigestWriter createDigestWriter(String name, DigestOptions options) throws FileNotFoundException {
+  public final DigestWriter createDigestWriter(DigestOptions options, String name) throws FileNotFoundException {
     File file = new File(options.getOptions().getOutputDirectory(), getFilename(name));
-    return DigestWriter.createCpp(file, HiveCC.VERSION, options);
+    return DigestWriter.create(file, options, true);
   }
 }
