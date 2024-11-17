@@ -466,7 +466,6 @@ public class CppParserGenerator extends ParserGenerator {
         if (la.getAmount() == Integer.MAX_VALUE) {
           amount = "INT_MAX";
         }
-
         retval += "jj_2" + la.getLaExpansion().internal_name + "(" + amount + ")";
         if (la.getActionTokens().size() != 0) {
           // In addition, there is also a semantic lookahead. So concatenate

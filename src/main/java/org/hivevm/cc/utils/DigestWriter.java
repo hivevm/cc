@@ -68,7 +68,7 @@ class DigestWriter extends PrintWriter {
     try (PrintWriter writer = new PrintWriter(this.stream)) {
       this.stream.write(this.bytes.toByteArray());
       writer.println();
-      writer.printf("// %s Checksum=%s (Do not edit this line!)\n", DigestWriter.NAME, checksum);
+      writer.printf("// Checksum=%s (Do not edit this line!)\n", checksum);
       if (this.options.hasConsumed()) {
         writer.printf("// Options: %s\n", this.options.consumed().collect(Collectors.joining(", ")));
       }

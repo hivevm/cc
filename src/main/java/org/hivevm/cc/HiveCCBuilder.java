@@ -93,7 +93,7 @@ public class HiveCCBuilder {
         }
         arguments.add(this.jjt.getAbsolutePath());
 
-        JJTree.main(arguments.toArray(new String[arguments.size()]));
+        HiveCCTree.main(arguments.toArray(new String[arguments.size()]));
 
         String path = this.jjt.getAbsolutePath();
         int offset = path.lastIndexOf("/");
@@ -103,7 +103,7 @@ public class HiveCCBuilder {
         arguments.add(this.jj.getAbsolutePath());
       }
 
-      JJParser.main(arguments.toArray(new String[arguments.size()]));
+      HiveCCParser.main(arguments.toArray(new String[arguments.size()]));
     } catch (Throwable e) {
       e.printStackTrace();
     }

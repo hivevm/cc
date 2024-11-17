@@ -429,7 +429,6 @@ public class CppLexerGenerator extends LexerGenerator {
   }
 
   private void DumpSkipActions(PrintWriter writer, LexerData data) {
-    Action act;
     writer.print("\nvoid " + data.getParserName() + "TokenManager::SkipLexicalActions(Token *matchedToken)");
 
     writer.println("{");
@@ -443,7 +442,8 @@ public class CppLexerGenerator extends LexerGenerator {
       }
 
       for (;;) {
-        if ((((act = data.actions[i]) == null) || act.getActionTokens().isEmpty()) && !data.canLoop[data.getState(i)]) {
+        Action act = data.actions[i];
+        if (((act == null) || act.getActionTokens().isEmpty()) && !data.canLoop[data.getState(i)]) {
           continue Outer;
         }
 
@@ -497,7 +497,6 @@ public class CppLexerGenerator extends LexerGenerator {
   }
 
   private void DumpMoreActions(PrintWriter writer, LexerData data) {
-    Action act;
 
     writer.print("\nvoid " + data.getParserName() + "TokenManager::MoreLexicalActions()");
     writer.println("{");
@@ -512,7 +511,8 @@ public class CppLexerGenerator extends LexerGenerator {
       }
 
       for (;;) {
-        if ((((act = data.actions[i]) == null) || act.getActionTokens().isEmpty()) && !data.canLoop[data.getState(i)]) {
+        Action act = data.actions[i];
+        if (((act == null) || act.getActionTokens().isEmpty()) && !data.canLoop[data.getState(i)]) {
           continue Outer;
         }
 

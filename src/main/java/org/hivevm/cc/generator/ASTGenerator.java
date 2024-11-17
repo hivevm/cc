@@ -30,7 +30,7 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Set;
 
-public abstract class ASTCodeGenerator extends JJTreeParserDefaultVisitor {
+public abstract class ASTGenerator extends JJTreeParserDefaultVisitor {
 
   private final Set<String> nodesToGenerate = new HashSet<>();
 
@@ -143,7 +143,7 @@ public abstract class ASTCodeGenerator extends JJTreeParserDefaultVisitor {
     node.expansion_unit.jjtAccept(this, writer);
     writer.println();
     writer.print("}");
-    catchExpansionUnit(node.node_scope, writer, indent, node.expansion_unit);
+    insertCatchBlocks(node.node_scope, writer, indent, node.expansion_unit);
     return true;
   }
 
@@ -157,7 +157,7 @@ public abstract class ASTCodeGenerator extends JJTreeParserDefaultVisitor {
 
     node.expansion_unit.jjtAccept(this, writer);
 
-    catchExpansionUnit(node.node_scope, writer, indent, node.expansion_unit);
+    insertCatchBlocks(node.node_scope, writer, indent, node.expansion_unit);
 
     // Print the "whiteOut" equivalent of the Node descriptor to preserve
     // line numbers in the generated file.
@@ -178,13 +178,16 @@ public abstract class ASTCodeGenerator extends JJTreeParserDefaultVisitor {
   protected abstract void insertCloseNodeCode(NodeScope ns, ASTWriter writer, String indent, boolean isFinal,
       JJTreeOptions options);
 
-  protected abstract void insertCatchBlocks(NodeScope ns, ASTWriter writer, Enumeration<String> thrown_names,
-      String indent);
+  protected abstract void insertCatchBlocks(NodeScope ns, ASTWriter writer, String indent, ASTNode expansion_unit);
 
-  protected abstract void catchExpansionUnit(NodeScope ns, ASTWriter writer, String indent, ASTNode expansion_unit);
+  protected final Enumeration<String> findThrown(NodeScope ns, ASTNode expansion_unit) {
+    Hashtable<String, String> thrown_set = new Hashtable<>();
+    findThrown(ns, thrown_set, expansion_unit);
+    return thrown_set.elements();
+  }
 
 
-  protected final void findThrown(NodeScope ns, Hashtable<String, String> thrown_set, ASTNode expansion_unit) {
+  private void findThrown(NodeScope ns, Hashtable<String, String> thrown_set, ASTNode expansion_unit) {
     if (expansion_unit instanceof ASTBNFNonTerminal) {
       // Should really make the nonterminal explicitly maintain its name.
       String nt = expansion_unit.getFirstToken().image;
@@ -199,5 +202,5 @@ public abstract class ASTCodeGenerator extends JJTreeParserDefaultVisitor {
     }
   }
 
-  public abstract void generateJJTree(JJTreeOptions options);
+  public abstract void generate(JJTreeOptions options);
 }

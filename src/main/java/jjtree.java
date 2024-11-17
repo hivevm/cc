@@ -27,6 +27,6 @@
 public interface jjtree {
 
   static void main(String[] args) {
-    org.hivevm.cc.JJTree.main(args);
+    org.hivevm.cc.HiveCCTree.main(args);
   }
 }

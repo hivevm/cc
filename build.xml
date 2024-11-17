@@ -6,8 +6,8 @@
 	<property name="jjtree-generated-src" value="${generated-src}/org/hivevm/cc/jjtree" />
 
 	<property name="bootstrap-jar" value="bootstrap/javacc.jar" />
-	<property name="jjtree-class-name" value="org.hivevm.cc.JJTree" />
-	<property name="javacc-class-name" value="org.hivevm.cc.JJParser" />
+	<property name="jjtree-class-name" value="org.hivevm.cc.HiveCCTree" />
+	<property name="javacc-class-name" value="org.hivevm.cc.HiveCCParser" />
 
 	<property name="target-folder" value="target" />
 

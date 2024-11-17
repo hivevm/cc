@@ -27,6 +27,6 @@
 public interface javacc {
 
   static void main(String[] args) throws Exception {
-    org.hivevm.cc.JJParser.main(args);
+    org.hivevm.cc.HiveCCParser.main(args);
   }
 }

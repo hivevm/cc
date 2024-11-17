@@ -3,7 +3,7 @@
 
 package org.hivevm.cc.doc;
 
-import org.hivevm.cc.JJMain;
+import org.hivevm.cc.HiveCCTools;
 import org.hivevm.cc.parser.JavaCCData;
 import org.hivevm.cc.parser.JavaCCErrors;
 import org.hivevm.cc.parser.JavaCCParser;
@@ -73,7 +73,7 @@ public final class JJDocMain extends JJDocGlobals {
     JavaCCErrors.reInit();
     Options options = new JJDocOptions();
 
-    JJMain.bannerLine("Documentation Generator", "0.1.4");
+    HiveCCTools.bannerLine("Documentation Generator", "0.1.4");
 
     JavaCCParser parser = null;
     if (args.length == 0) {

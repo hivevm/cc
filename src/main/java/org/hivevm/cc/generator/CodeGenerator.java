@@ -12,7 +12,7 @@ class CodeGenerator {
 
   private int crow, ccol;
 
-  protected void genTokenSetup(Token t) {
+  protected final void genTokenSetup(Token t) {
     Token tt = t;
 
     while (tt.specialToken != null) {
@@ -64,7 +64,7 @@ class CodeGenerator {
     return retval + getStringForTokenOnly(t);
   }
 
-  protected String getStringForTokenOnly(Token t) {
+  protected final String getStringForTokenOnly(Token t) {
     String retval = "";
     for (; this.crow < t.beginLine; this.crow++) {
       retval += "\n";

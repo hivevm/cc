@@ -44,7 +44,7 @@ public class JavaLexerGenerator extends LexerGenerator {
     options.setWriter("DumpTokenActions", p -> DumpTokenActions(p, data));
     options.setWriter("DumpStateSets", p -> DumpStateSets(p, data));
     options.setWriter("DumpGetNextToken", p -> DumpGetNextToken(p, data));
-    options.setWriter("dumpStaticVarDeclarations", p -> JavaLexerGenerator.DumpStaticVarDeclarations(p, data));
+    options.setWriter("dumpStaticVarDeclarations", p -> DumpStaticVarDeclarations(p, data));
 
     options.set("defaultLexState", data.defaultLexState);
     options.set("maxOrdinal", data.maxOrdinal);
@@ -73,7 +73,7 @@ public class JavaLexerGenerator extends LexerGenerator {
     provider.render(data.options(), options, data.getParserName());
   }
 
-  private static void DumpStaticVarDeclarations(PrintWriter writer, LexerData data) {
+  private void DumpStaticVarDeclarations(PrintWriter writer, LexerData data) {
     int i;
 
     writer.println();
@@ -488,7 +488,6 @@ public class JavaLexerGenerator extends LexerGenerator {
   }
 
   private void DumpSkipActions(PrintWriter writer, LexerData data) {
-
     Outer:
     for (int i = 0; i < data.maxOrdinal; i++) {
       if ((data.toSkip[i / 64] & (1L << (i % 64))) == 0L) {
@@ -1077,6 +1076,7 @@ public class JavaLexerGenerator extends LexerGenerator {
         writer.println("   debugStream.println(\"   Currently matched the first \" + (jjmatchedPos + 1) + "
             + "\" characters as a \" + tokenImage[jjmatchedKind] + \" token.\");");
       }
+
       writer.println("   return pos + 1;");
       writer.println("}");
       data.global.boilerPlateDumped = true;
@@ -1633,7 +1633,6 @@ public class JavaLexerGenerator extends LexerGenerator {
     }
 
     writer.println("      try { curChar = input_stream.readChar(); }");
-
     if (data.isMixedState()) {
       writer.println("      catch(java.io.IOException e) { break; }");
     } else {
