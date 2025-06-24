@@ -220,4 +220,15 @@ public class CharCollector implements CharStream {
   {
      buffer = null;
   }
+
+  public void setTabSize(int t) {}
+  public int getTabSize() {
+	   return 0;
+  }
+  public boolean getTrackLineColumn() {
+    return false;
+  }
+
+  public void setTrackLineColumn(boolean tlc) {
+  }
 }
