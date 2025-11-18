@@ -3,7 +3,7 @@ package {{JAVA_PACKAGE}};
 @foreach(name : JAVA_IMPORTS)
 import {{name}};
 @end
-public class {{PARSER_NAME}}@if(BASE_PARSER) extends {{BASE_PARSER}}@fi implements @if(USE_AST){{PARSER_NAME}}TreeConstants, @fi{{PARSER_NAME}}Constants {
+public class {{PARSER_NAME}}@if(BASE_PARSER) extends {{BASE_PARSER}}@fi implements {{PARSER_NAME}}Constants {
 @if(USE_AST)
 
   protected JJT{{PARSER_NAME}}State jjtree = new JJT{{PARSER_NAME}}State();
