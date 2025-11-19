@@ -1,0 +1,38 @@
+pub struct Token{
+  kind: u32,
+  image: &'static str,
+  next: &'static Token,
+  special: &'static Token,
+@if(KEEP_LINE_COLUMN)
+  begin_line: u32,
+  begin_column: u32,
+  end_line: u32,
+  end_column: u32,
+@fi
+}
+
+impl Token {
+@if(KEEP_LINE_COLUMN)
+    pub fn new(kind: u32, image: &'static str, next: &'static Token, special: &'static Token, begin_line: u32, begin_column: u32, end_line: u32, end_column: u32) -> Self {
+        Token {
+            kind,
+            image,
+            next,
+            special,
+            begin_line,
+            begin_column,
+            end_line,
+            end_column,
+        }
+    }
+@else  
+    fn new(kind: u32, image: &'static str, next: &'static Token, special: &'static Token) -> Self {
+        Token {
+            kind,
+            image,
+            next,
+            special,
+        }
+    }
+@fi
+}

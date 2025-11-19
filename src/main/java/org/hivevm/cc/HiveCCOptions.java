@@ -59,6 +59,8 @@ public class HiveCCOptions implements Options {
         temp.add(new OptionInfo(HiveCC.JJPARSER_JAVA_PACKAGE, ""));
         temp.add(new OptionInfo(HiveCC.JJPARSER_JAVA_IMPORTS, ""));
 
+        temp.add(new OptionInfo(HiveCC.JJPARSER_RUST_MODULE, ""));
+
         temp.add(new OptionInfo(HiveCC.JJPARSER_CPP_NAMESPACE, ""));
         temp.add(new OptionInfo(HiveCC.JJPARSER_CPP_STACK_LIMIT, ""));
         temp.add(new OptionInfo(HiveCC.JJPARSER_CPP_STOP_ON_FIRST_ERROR, Boolean.FALSE));
