@@ -3,7 +3,6 @@
 
 package org.hivevm.cc.generator.cpp;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -25,6 +24,7 @@ import org.hivevm.cc.parser.RegExprSpec;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.utils.Encoding;
 import org.hivevm.cc.utils.TemplateOptions;
+import org.hivevm.core.SourceWriter;
 
 /**
  * Generate lexer.
@@ -37,7 +37,7 @@ class CppLexerGenerator extends LexerGenerator {
             return;
         }
 
-        TemplateOptions options = new TemplateOptions(data.options());
+        var options = new TemplateOptions(data.options());
         options.add(LexerGenerator.LOHI_BYTES, data.getLohiByte())
                 .set("bytes", i -> getLohiBytes(data, i));
         options.add(LexerGenerator.STATES, data.getStateNames())
@@ -98,7 +98,7 @@ class CppLexerGenerator extends LexerGenerator {
             }
         }
 
-        TemplateOptions options = new TemplateOptions(data.options());
+        var options = new TemplateOptions(data.options());
         options.add("STATES", data.getStateCount()).set("name", data::getStateName);
         options.add("TOKENS", data.getOrderedsTokens()).set("ordinal", RExpression::getOrdinal)
                 .set("label", RExpression::getLabel);
@@ -119,22 +119,22 @@ class CppLexerGenerator extends LexerGenerator {
         return "0x" + Long.toHexString(value) + "ULL";
     }
 
-    private void DumpStaticVarDeclarations(PrintWriter writer, LexerData data) {
+    private void DumpStaticVarDeclarations(SourceWriter writer, LexerData data) {
         if (data.maxLexStates() > 1) {
-            writer.println();
+            writer.new_line();
             writer.println("/** Lex State array. */");
-            writer.print("static const int jjnewLexState[] = {");
+            writer.append("static const int jjnewLexState[] = {");
 
             for (int i = 0; i < data.maxOrdinal(); i++) {
                 if ((i % 25) == 0) {
-                    writer.print("\n   ");
+                    writer.append("\n   ");
                 }
 
                 if (data.newLexState(i) == null) {
-                    writer.print("-1, ");
+                    writer.append("-1, ");
                 }
                 else {
-                    writer.print(data.getStateIndex(data.newLexState(i)) + ", ");
+                    writer.append(data.getStateIndex(data.newLexState(i)) + ", ");
                 }
             }
             writer.println("\n};");
@@ -142,54 +142,54 @@ class CppLexerGenerator extends LexerGenerator {
 
         if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
             // Bit vector for TOKEN
-            writer.print("static const unsigned long long jjtoToken[] = {");
+            writer.append("static const unsigned long long jjtoToken[] = {");
             for (int i = 0; i < ((data.maxOrdinal() / 64) + 1); i++) {
                 if ((i % 4) == 0) {
-                    writer.print("\n   ");
+                    writer.append("\n   ");
                 }
-                writer.print(toHexString(data.toToken(i)) + ", ");
+                writer.append(toHexString(data.toToken(i)) + ", ");
             }
             writer.println("\n};");
         }
 
         if (data.hasSkip() || data.hasSpecial()) {
             // Bit vector for SKIP
-            writer.print("static const unsigned long long jjtoSkip[] = {");
+            writer.append("static const unsigned long long jjtoSkip[] = {");
             for (int i = 0; i < ((data.maxOrdinal() / 64) + 1); i++) {
                 if ((i % 4) == 0) {
-                    writer.print("\n   ");
+                    writer.append("\n   ");
                 }
-                writer.print(toHexString(data.toSkip(i)) + ", ");
+                writer.append(toHexString(data.toSkip(i)) + ", ");
             }
             writer.println("\n};");
         }
 
         if (data.hasSpecial()) {
             // Bit vector for SPECIAL
-            writer.print("static const unsigned long long jjtoSpecial[] = {");
+            writer.append("static const unsigned long long jjtoSpecial[] = {");
             for (int i = 0; i < ((data.maxOrdinal() / 64) + 1); i++) {
                 if ((i % 4) == 0) {
-                    writer.print("\n   ");
+                    writer.append("\n   ");
                 }
-                writer.print(toHexString(data.toSpecial(i)) + ", ");
+                writer.append(toHexString(data.toSpecial(i)) + ", ");
             }
             writer.println("\n};");
         }
 
         if (data.hasMore()) {
             // Bit vector for MORE
-            writer.print("static const unsigned long long jjtoMore[] = {");
+            writer.append("static const unsigned long long jjtoMore[] = {");
             for (int i = 0; i < ((data.maxOrdinal() / 64) + 1); i++) {
                 if ((i % 4) == 0) {
-                    writer.print("\n   ");
+                    writer.append("\n   ");
                 }
-                writer.print(toHexString(data.toMore(i)) + ", ");
+                writer.append(toHexString(data.toMore(i)) + ", ");
             }
             writer.println("\n};");
         }
     }
 
-    private void DumpGetNextToken(PrintWriter writer, LexerData data) {
+    private void DumpGetNextToken(SourceWriter writer, LexerData data) {
         if ((data.getNextStateForEof() != null) || (data.getActionForEof() != null)) {
             writer.println("      TokenLexicalActions(matchedToken);");
         }
@@ -477,8 +477,8 @@ class CppLexerGenerator extends LexerGenerator {
         }
     }
 
-    private void DumpSkipActions(PrintWriter writer, LexerData data) {
-        writer.print(
+    private void DumpSkipActions(SourceWriter writer, LexerData data) {
+        writer.append(
                 "\nvoid " + data.getParserName() + "TokenManager::SkipLexicalActions(Token *matchedToken)");
 
         writer.println("{");
@@ -521,7 +521,7 @@ class CppLexerGenerator extends LexerGenerator {
                     break;
                 }
 
-                writer.print("         image.append");
+                writer.append("         image.append");
                 if (data.getImage(i) != null) {
                     writer.println("(jjstrLiteralImages[" + i + "]);");
                     writer.println("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();");
@@ -551,8 +551,8 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("}");
     }
 
-    private void DumpMoreActions(PrintWriter writer, LexerData data) {
-        writer.print("\nvoid " + data.getParserName() + "TokenManager::MoreLexicalActions()");
+    private void DumpMoreActions(SourceWriter writer, LexerData data) {
+        writer.append("\nvoid " + data.getParserName() + "TokenManager::MoreLexicalActions()");
         writer.println("{");
         writer.println("   jjimageLen += (lengthOfMatch = jjmatchedPos + 1);");
         writer.println("   switch(jjmatchedKind)");
@@ -594,7 +594,7 @@ class CppLexerGenerator extends LexerGenerator {
                     break;
                 }
 
-                writer.print("         image.append");
+                writer.append("         image.append");
 
                 if (data.getImage(i) != null) {
                     writer.println("(jjstrLiteralImages[" + i + "]);");
@@ -626,10 +626,10 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("}");
     }
 
-    private void DumpTokenActions(PrintWriter writer, LexerData data) {
+    private void DumpTokenActions(SourceWriter writer, LexerData data) {
         Action act;
         int i;
-        writer.print("\nvoid " + data.getParserName()
+        writer.append("\nvoid " + data.getParserName()
                 + "TokenManager::TokenLexicalActions(Token *matchedToken)");
         writer.println("{");
         writer.println("   switch(jjmatchedKind)");
@@ -677,7 +677,7 @@ class CppLexerGenerator extends LexerGenerator {
                     writer.println("      image.setLength(0);"); // For EOF no image is there
                 }
                 else {
-                    writer.print("        image.append");
+                    writer.append("        image.append");
 
                     if (data.getImage(i) != null) {
                         writer.println("(jjstrLiteralImages[" + i + "]);");
@@ -709,11 +709,11 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("}");
     }
 
-    private void DumpStatesForKind(PrintWriter writer, LexerData data) {
+    private void DumpStatesForKind(SourceWriter writer, LexerData data) {
         boolean moreThanOne = false;
         int cnt;
 
-        writer.print("static const int kindForState[" + data.stateSetSize() + "][" + data.stateSetSize()
+        writer.append("static const int kindForState[" + data.stateSetSize() + "][" + data.stateSetSize()
                 + "] = ");
 
         if (data.getKinds() == null) {
@@ -735,27 +735,27 @@ class CppLexerGenerator extends LexerGenerator {
             }
             else {
                 cnt = 0;
-                writer.print("{ ");
+                writer.append("{ ");
                 for (int element : kind) {
                     if ((cnt % 15) == 0) {
-                        writer.print("\n  ");
+                        writer.append("\n  ");
                     }
                     else if (cnt > 1) {
-                        writer.print(" ");
+                        writer.append(" ");
                     }
 
-                    writer.print(element);
-                    writer.print(", ");
+                    writer.append("" + element);
+                    writer.append(", ");
 
                 }
 
-                writer.print("}");
+                writer.append("}");
             }
         }
         writer.println("\n};");
     }
 
-    private void DumpStatesForStateCPP(PrintWriter writer, LexerData data) {
+    private void DumpStatesForStateCPP(SourceWriter writer, LexerData data) {
         if (data.getStatesForState() == null) {
             assert (false) : "This should never be null.";
             return;
@@ -769,16 +769,16 @@ class CppLexerGenerator extends LexerGenerator {
             for (int j = 0; j < data.getStatesForState()[i].length; j++) {
                 int[] stateSet = data.getStatesForState()[i][j];
 
-                writer.print("const int stateSet_" + i + "_" + j + "[" + data.stateSetSize() + "] = ");
+                writer.append("const int stateSet_" + i + "_" + j + "[" + data.stateSetSize() + "] = ");
                 if (stateSet == null) {
                     writer.println("   { " + j + " };");
                     continue;
                 }
 
-                writer.print("   { ");
+                writer.append("   { ");
 
                 for (int element : stateSet) {
-                    writer.print(element + ", ");
+                    writer.append(element + ", ");
                 }
 
                 writer.println("};");
@@ -794,12 +794,12 @@ class CppLexerGenerator extends LexerGenerator {
             }
 
             for (int j = 0; j < data.getStatesForState()[i].length; j++) {
-                writer.print("stateSet_" + i + "_" + j + ",");
+                writer.append("stateSet_" + i + "_" + j + ",");
             }
             writer.println("};");
         }
 
-        writer.print("const int** statesForState[] = { ");
+        writer.append("const int** statesForState[] = { ");
         for (int i = 0; i < data.maxLexStates(); i++) {
             writer.println("stateSet_" + i + ", ");
         }
@@ -807,29 +807,29 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("\n};");
     }
 
-    private void DumpStateSets(PrintWriter writer, LexerData data) {
+    private void DumpStateSets(SourceWriter writer, LexerData data) {
         int cnt = 0;
 
-        writer.print("static const int jjnextStates[] = {");
+        writer.append("static const int jjnextStates[] = {");
         if (!data.getOrderedStateSet().isEmpty()) {
             for (int[] set : data.getOrderedStateSet()) {
                 for (int element : set) {
                     if ((cnt++ % 16) == 0) {
-                        writer.print("\n   ");
+                        writer.append("\n   ");
                     }
 
-                    writer.print(element + ", ");
+                    writer.append(element + ", ");
                 }
             }
         }
         else {
-            writer.print("0");
+            writer.append("0");
         }
 
         writer.println("\n};");
     }
 
-    private void DumpStrLiteralImages(PrintWriter writer, LexerData data) {
+    private void DumpStrLiteralImages(SourceWriter writer, LexerData data) {
         // For C++
         String image;
         int i;
@@ -898,8 +898,8 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("};");
     }
 
-    private void DumpStartWithStates(PrintWriter writer, NfaStateData data) {
-        writer.print("\nint " + data.getParserName() + "TokenManager::jjStartNfaWithStates"
+    private void DumpStartWithStates(SourceWriter writer, NfaStateData data) {
+        writer.append("\nint " + data.getParserName() + "TokenManager::jjStartNfaWithStates"
                 + data.getLexerStateSuffix()
                 + "(int pos, int kind, int state)");
 
@@ -928,7 +928,7 @@ class CppLexerGenerator extends LexerGenerator {
     }
 
     @Override
-    protected final void DumpHeadForCase(PrintWriter writer, int byteNum) {
+    protected final void DumpHeadForCase(SourceWriter writer, int byteNum) {
         if (byteNum == 0) {
             writer.println("         unsigned long long l = 1ULL << curChar;");
             writer.println("         (void)l;");
@@ -953,8 +953,8 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("            {");
     }
 
-    private void DumpNonAsciiMoveMethod(LexerData data, NfaState state, PrintWriter writer) {
-        writer.print(
+    private void DumpNonAsciiMoveMethod(LexerData data, NfaState state, SourceWriter writer) {
+        writer.append(
                 "\nbool " + data.getParserName() + "TokenManager::jjCanMove_" + state.nonAsciiMethod
                         + "(int hiByte, int i1, int i2, unsigned long long l1, unsigned long long l2)");
 
@@ -995,7 +995,7 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("}");
     }
 
-    private void dumpNfaAndDfaHeader(NfaStateData stateData, PrintWriter writer) {
+    private void dumpNfaAndDfaHeader(NfaStateData stateData, SourceWriter writer) {
         if (stateData.hasNFA() && !stateData.isMixedState() && (stateData.getMaxStrKind() > 0)) {
             int i, maxKindsReqd = (stateData.getMaxStrKind() / 64) + 1;
             StringBuilder params = new StringBuilder();
@@ -1036,7 +1036,7 @@ class CppLexerGenerator extends LexerGenerator {
         }
     }
 
-    private void DumpDfaCodeHeader(PrintWriter writer, NfaStateData data) {
+    private void DumpDfaCodeHeader(SourceWriter writer, NfaStateData data) {
         if (data.getMaxLen() == 0) {
             return;
         }
@@ -1097,7 +1097,7 @@ class CppLexerGenerator extends LexerGenerator {
     }
 
     @Override
-    protected final void dumpNfaStartStatesCode(PrintWriter writer, NfaStateData data,
+    protected final void dumpNfaStartStatesCode(SourceWriter writer, NfaStateData data,
                                                 Hashtable<String, long[]>[] statesForPos) {
         if (data.getMaxStrKind() == 0) { // No need to generate this function
             return;
@@ -1113,7 +1113,7 @@ class CppLexerGenerator extends LexerGenerator {
         }
         params.append("unsigned long long active").append(i).append(")");
 
-        writer.print("\nint " + data.getParserName() + "TokenManager::jjStopStringLiteralDfa"
+        writer.append("\nint " + data.getParserName() + "TokenManager::jjStopStringLiteralDfa"
                 + data.getLexerStateSuffix()
                 + "(int pos, " + params);
 
@@ -1145,15 +1145,15 @@ class CppLexerGenerator extends LexerGenerator {
                     }
 
                     if (condGenerated) {
-                        writer.print(" || ");
+                        writer.append(" || ");
                     }
                     else {
-                        writer.print("         if (");
+                        writer.append("         if (");
                     }
 
                     condGenerated = true;
 
-                    writer.print("(active" + j + " & " + toHexString(actives[j]) + ") != 0L");
+                    writer.append("(active" + j + " & " + toHexString(actives[j]) + ") != 0L");
                 }
 
                 if (condGenerated) {
@@ -1237,7 +1237,7 @@ class CppLexerGenerator extends LexerGenerator {
         }
         params.append("unsigned long long active").append(i).append(")");
 
-        writer.print(
+        writer.append(
                 "\nint " + data.getParserName() + "TokenManager::jjStartNfa" + data.getLexerStateSuffix()
                         + params);
         writer.println("{");
@@ -1256,18 +1256,18 @@ class CppLexerGenerator extends LexerGenerator {
             return;
         }
 
-        writer.print("   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + "jjStopStringLiteralDfa"
+        writer.append("   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + "jjStopStringLiteralDfa"
                 + data.getLexerStateSuffix() + "(pos, ");
         for (i = 0; i < (maxKindsReqd - 1); i++) {
-            writer.print("active" + i + ", ");
+            writer.append("active" + i + ", ");
         }
-        writer.print("active" + i + ")");
+        writer.append("active" + i + ")");
         writer.println(", pos + 1);");
         writer.println("}");
     }
 
     @Override
-    protected final void dumpDfaCode(PrintWriter writer, NfaStateData data) {
+    protected final void dumpDfaCode(SourceWriter writer, NfaStateData data) {
         Hashtable<String, ?> tab;
         String key;
         KindInfo info;
@@ -1276,14 +1276,14 @@ class CppLexerGenerator extends LexerGenerator {
         boolean ifGenerated;
 
         if (data.getMaxLen() == 0) {
-            writer.print("\n  int " + data.getParserName() + "TokenManager::jjMoveStringLiteralDfa0"
+            writer.append("\n  int " + data.getParserName() + "TokenManager::jjMoveStringLiteralDfa0"
                     + data.getLexerStateSuffix() + "()");
             DumpNullStrLiterals(writer, data);
             return;
         }
 
         if (!data.global.boilerPlateDumped) {
-            writer.print(
+            writer.append(
                     "\n int " + data.getParserName() + "TokenManager::jjStopAtPos(int pos, int kind)");
             writer.println("{");
             writer.println("   jjmatchedKind = kind;");
@@ -1354,44 +1354,44 @@ class CppLexerGenerator extends LexerGenerator {
                 }
             }
             params.append(")");
-            writer.print("\n int " + data.getParserName() + "TokenManager::jjMoveStringLiteralDfa" + i
+            writer.append("\n int " + data.getParserName() + "TokenManager::jjMoveStringLiteralDfa" + i
                     + data.getLexerStateSuffix() + params);
             writer.println("{");
 
             if (i != 0) {
                 if (i > 1) {
                     atLeastOne = false;
-                    writer.print("   if ((");
+                    writer.append("   if ((");
 
                     for (j = 0; j < (maxLongsReqd - 1); j++) {
                         if (i <= (data.getMaxLenForActive(j) + 1)) {
                             if (atLeastOne) {
-                                writer.print(" | ");
+                                writer.append(" | ");
                             }
                             else {
                                 atLeastOne = true;
                             }
-                            writer.print("(active" + j + " &= old" + j + ")");
+                            writer.append("(active" + j + " &= old" + j + ")");
                         }
                     }
 
                     if (i <= (data.getMaxLenForActive(j) + 1)) {
                         if (atLeastOne) {
-                            writer.print(" | ");
+                            writer.append(" | ");
                         }
-                        writer.print("(active" + j + " &= old" + j + ")");
+                        writer.append("(active" + j + " &= old" + j + ")");
                     }
 
                     writer.println(") == 0L)");
                     if (!data.isMixedState() && (data.generatedStates() != 0)) {
-                        writer.print(
+                        writer.append(
                                 "      return jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 2) + ", ");
                         for (j = 0; j < (maxLongsReqd - 1); j++) {
                             if (i <= (data.getMaxLenForActive(j) + 1)) {
-                                writer.print("old" + j + ", ");
+                                writer.append("old" + j + ", ");
                             }
                             else {
-                                writer.print("0L, ");
+                                writer.append("0L, ");
                             }
                         }
                         if (i <= (data.getMaxLenForActive(j) + 1)) {
@@ -1442,14 +1442,14 @@ class CppLexerGenerator extends LexerGenerator {
                 writer.println("   if (reader->endOfInput()) {");
 
                 if (!data.isMixedState() && (data.generatedStates() != 0)) {
-                    writer.print(
+                    writer.append(
                             "      jjStopStringLiteralDfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
                     for (k = 0; k < (maxLongsReqd - 1); k++) {
                         if (i <= data.getMaxLenForActive(k)) {
-                            writer.print("active" + k + ", ");
+                            writer.append("active" + k + ", ");
                         }
                         else {
-                            writer.print("0L, ");
+                            writer.append("0L, ");
                         }
                     }
 
@@ -1540,10 +1540,10 @@ class CppLexerGenerator extends LexerGenerator {
                             }
 
                             if (ifGenerated) {
-                                writer.print("         else if ");
+                                writer.append("         else if ");
                             }
                             else if (i != 0) {
-                                writer.print("         if ");
+                                writer.append("         if ");
                             }
 
                             ifGenerated = true;
@@ -1615,63 +1615,63 @@ class CppLexerGenerator extends LexerGenerator {
                     atLeastOne = false;
 
                     if (i == 0) {
-                        writer.print("         return ");
+                        writer.append("         return ");
 
-                        writer.print("jjMoveStringLiteralDfa" + (i + 1) + data.getLexerStateSuffix() + "(");
+                        writer.append("jjMoveStringLiteralDfa" + (i + 1) + data.getLexerStateSuffix() + "(");
                         for (j = 0; j < (maxLongsReqd - 1); j++) {
                             if ((i + 1) <= data.getMaxLenForActive(j)) {
                                 if (atLeastOne) {
-                                    writer.print(", ");
+                                    writer.append(", ");
                                 }
                                 else {
                                     atLeastOne = true;
                                 }
 
-                                writer.print(toHexString(info.validKinds[j]));
+                                writer.append(toHexString(info.validKinds[j]));
                             }
                         }
 
                         if ((i + 1) <= data.getMaxLenForActive(j)) {
                             if (atLeastOne) {
-                                writer.print(", ");
+                                writer.append(", ");
                             }
 
-                            writer.print(toHexString(info.validKinds[j]));
+                            writer.append(toHexString(info.validKinds[j]));
                         }
                         writer.println(");");
                     }
                     else {
-                        writer.print("         return ");
+                        writer.append("         return ");
 
-                        writer.print("jjMoveStringLiteralDfa" + (i + 1) + data.getLexerStateSuffix() + "(");
+                        writer.append("jjMoveStringLiteralDfa" + (i + 1) + data.getLexerStateSuffix() + "(");
 
                         for (j = 0; j < (maxLongsReqd - 1); j++) {
                             if ((i + 1) <= (data.getMaxLenForActive(j) + 1)) {
                                 if (atLeastOne) {
-                                    writer.print(", ");
+                                    writer.append(", ");
                                 }
                                 else {
                                     atLeastOne = true;
                                 }
 
                                 if (info.validKinds[j] != 0L) {
-                                    writer.print("active" + j + ", " + toHexString(info.validKinds[j]));
+                                    writer.append("active" + j + ", " + toHexString(info.validKinds[j]));
                                 }
                                 else {
-                                    writer.print("active" + j + ", 0L");
+                                    writer.append("active" + j + ", 0L");
                                 }
                             }
                         }
 
                         if ((i + 1) <= (data.getMaxLenForActive(j) + 1)) {
                             if (atLeastOne) {
-                                writer.print(", ");
+                                writer.append(", ");
                             }
                             if (info.validKinds[j] != 0L) {
-                                writer.print("active" + j + ", " + toHexString(info.validKinds[j]));
+                                writer.append("active" + j + ", " + toHexString(info.validKinds[j]));
                             }
                             else {
-                                writer.print("active" + j + ", 0L");
+                                writer.append("active" + j + ", 0L");
                             }
                         }
 
@@ -1732,13 +1732,13 @@ class CppLexerGenerator extends LexerGenerator {
                      * matched string.
                      */
 
-                    writer.print("   return jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
+                    writer.append("   return jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
                     for (k = 0; k < (maxLongsReqd - 1); k++) {
                         if (i <= data.getMaxLenForActive(k)) {
-                            writer.print("active" + k + ", ");
+                            writer.append("active" + k + ", ");
                         }
                         else {
-                            writer.print("0L, ");
+                            writer.append("0L, ");
                         }
                     }
                     if (i <= data.getMaxLenForActive(k)) {
@@ -1767,8 +1767,8 @@ class CppLexerGenerator extends LexerGenerator {
     }
 
     @Override
-    protected final void dumpMoveNfa(PrintWriter writer, NfaStateData data) {
-        writer.print(
+    protected final void dumpMoveNfa(SourceWriter writer, NfaStateData data) {
+        writer.append(
                 "\nint " + data.getParserName() + "TokenManager::jjMoveNfa" + data.getLexerStateSuffix()
                         + "(int startState, int curPos)");
         writer.println("{");
@@ -1903,11 +1903,11 @@ class CppLexerGenerator extends LexerGenerator {
         writer.println("}");
     }
 
-    private static void getTextAsChars(String text, PrintWriter writer) {
+    private static void getTextAsChars(String text, SourceWriter writer) {
         List<String> chars = new ArrayList<>();
         for (int j = 0; j < text.length(); j++) {
             chars.add("0x" + Integer.toHexString(text.charAt(j)));
         }
-        writer.print(String.join(", ", chars));
+        writer.append(String.join(", ", chars));
     }
 }

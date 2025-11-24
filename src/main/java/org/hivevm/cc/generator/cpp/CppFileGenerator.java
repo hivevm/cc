@@ -3,7 +3,6 @@
 
 package org.hivevm.cc.generator.cpp;
 
-import java.io.PrintWriter;
 import java.util.List;
 
 import org.hivevm.cc.generator.FileGenerator;
@@ -13,6 +12,7 @@ import org.hivevm.cc.model.RExpression;
 import org.hivevm.cc.model.RStringLiteral;
 import org.hivevm.cc.model.TokenProduction;
 import org.hivevm.cc.parser.JavaCCErrors;
+import org.hivevm.core.SourceWriter;
 
 /**
  * Generates the Constants file.
@@ -41,7 +41,7 @@ class CppFileGenerator implements FileGenerator {
         TemplateProvider.render(CppTemplate.PARSERHANDLER_H, context.options());
     }
 
-    static void getRegExp(PrintWriter writer, boolean isImage, int i, List<RExpression> expressions) {
+    static void getRegExp(SourceWriter writer, boolean isImage, int i, List<RExpression> expressions) {
         if (i == 0) {
             CppFileGenerator.printCharArray(writer, "<EOF>");
         }
@@ -69,9 +69,9 @@ class CppFileGenerator implements FileGenerator {
     }
 
     // Used by the CPP code generatror
-    private static void printCharArray(PrintWriter writer, String s) {
+    private static void printCharArray(SourceWriter writer, String s) {
         for (int i = 0; i < s.length(); i++) {
-            writer.print("0x" + Integer.toHexString(s.charAt(i)) + ", ");
+            writer.append("0x" + Integer.toHexString(s.charAt(i)) + ", ");
         }
     }
 

@@ -39,6 +39,7 @@ public class TreeContext extends HiveCCOptions implements TreeOptions {
         set(HiveCC.JJPARSER_JAVA_IMPORTS, "");
         set(HiveCC.JJPARSER_BASE_PARSER, "");
         set(HiveCC.JJPARSER_BASE_LEXER, "");
+        set(HiveCC.JJPARSER_RUST_MODULE, "");
         set(HiveCC.JJPARSER_CPP_NAMESPACE, "");
     }
 

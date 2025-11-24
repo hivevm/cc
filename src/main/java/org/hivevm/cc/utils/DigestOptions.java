@@ -6,6 +6,7 @@ package org.hivevm.cc.utils;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.hivevm.core.Environment;
 
 
 /**
@@ -43,8 +44,8 @@ public class DigestOptions implements Environment {
      * Returns <code>true</code> if the environment variable is set.
      */
     @Override
-    public final boolean isSet(String name) {
-        return this.environment.isSet(name);
+    public final boolean has(String name) {
+        return this.environment.has(name);
     }
 
     /**
@@ -55,14 +56,6 @@ public class DigestOptions implements Environment {
     public final Object get(String name) {
         this.consumed.add(name);
         return this.environment.get(name);
-    }
-
-    /**
-     * Sets a key/value option.
-     */
-    @Override
-    public final void set(String name, Object value) {
-        this.environment.set(name, value);
     }
 
     /**

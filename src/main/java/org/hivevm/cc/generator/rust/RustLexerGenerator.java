@@ -1,37 +1,34 @@
 // Copyright 2024 HiveVM.ORG. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-package org.hivevm.cc.generator.java;
+package org.hivevm.cc.generator.rust;
 
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
-
 import org.hivevm.cc.Language;
 import org.hivevm.cc.generator.LexerData;
 import org.hivevm.cc.generator.LexerGenerator;
+import org.hivevm.cc.generator.LexerGeneratorRust;
 import org.hivevm.cc.generator.NfaStateData;
 import org.hivevm.cc.generator.NfaStateData.KindInfo;
-import org.hivevm.cc.generator.TemplateProvider;
 import org.hivevm.cc.lexer.NfaState;
 import org.hivevm.cc.model.Action;
 import org.hivevm.cc.model.RExpression;
 import org.hivevm.cc.model.RStringLiteral;
 import org.hivevm.cc.model.TokenProduction;
 import org.hivevm.cc.parser.JavaCCErrors;
-import org.hivevm.cc.parser.RegExprSpec;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.utils.Encoding;
-import org.hivevm.cc.utils.TemplateOptions;
 import org.hivevm.core.SourceWriter;
+import org.hivevm.core.TemplateLambda;
 
 /**
  * Generate lexer.
  */
-class JavaLexerGenerator extends LexerGenerator {
+class RustLexerGenerator extends LexerGeneratorRust {
 
     @Override
     public final void generate(LexerData data) {
@@ -39,16 +36,18 @@ class JavaLexerGenerator extends LexerGenerator {
             return;
         }
 
-        var options = new TemplateOptions(data.options());
+        var options = new TemplateLambda(data.options());
+        options.add("LOHI_BYTES_LENGTH", data.getLohiByteSize() + 1);
         options.add(LexerGenerator.LOHI_BYTES, data.getLohiByte())
-                .set("bytes", i -> getLohiBytes(data, i));
+            .set("bytes", i -> getLohiBytes(data, i));
         options.add(LexerGenerator.STATES, data.getStateNames()).set("NfaAndDfa",
                 (n, w) -> dumpNfaAndDfa(data.getStateData(n), w));
         options.add(LexerGenerator.NON_ASCII_TABLE, data.getNonAsciiTableForMethod())
                 .set("NON_ASCII_METHOD", s -> s.nonAsciiMethod)
                 .set("ASCII_MOVE", (s, w) -> DumpNonAsciiMoveMethod(s, data, w));
 
-        options.set("LITERAL_IMAGES", () -> JavaLexerGenerator.getStrLiteralImages(data));
+        options.set("LITERAL_IMAGES", RustLexerGenerator.getStrLiteralImageList(data));
+        options.set("LITERAL_IMAGES_LENGTH", RustLexerGenerator.getStrLiteralImageList(data).size());
         options.set("STATES_FOR_STATE", () -> getStatesForState(data));
         options.set("KIND_FOR_STATE", () -> getKindForState(data));
 
@@ -62,6 +61,7 @@ class JavaLexerGenerator extends LexerGenerator {
         options.set(LexerGenerator.DEFAULT_LEX_STATE, data.defaultLexState());
         options.set(LexerGenerator.MAX_LEX_STATES, data.maxLexStates());
         options.set(LexerGenerator.STATE_NAMES, data.getStateNames());
+        options.set("STATE_NAMES_LENGTH", data.getStateNames().size());
         options.set(LexerGenerator.KEEP_LINE_COL, data.keepLineCol());
 
         options.set(LexerGenerator.HAS_SKIP, data.hasSkip());
@@ -75,28 +75,33 @@ class JavaLexerGenerator extends LexerGenerator {
         options.set(LexerGenerator.HAS_EMPTY_MATCH, data.hasEmptyMatch());
 
         options.set(LexerGenerator.STATE_SET_SIZE, data.stateSetSize());
+        options.set(LexerGenerator.STATE_SET_SIZE + "2", data.stateSetSize() * 2);
         options.set(LexerGenerator.DUAL_NEED, data.jjCheckNAddStatesDualNeeded());
         options.set(LexerGenerator.UNARY_NEED, data.jjCheckNAddStatesUnaryNeeded());
         options.set(LexerGenerator.STATE_COUNT, data.getStateCount());
 
-        TemplateProvider provider = JavaTemplate.LEXER;
-        provider.render(options, data.getParserName());
+        RustTemplate.LEXER.render(options);
 
         generateConstants(data);
     }
 
+    protected String self() {
+        return "self.";
+    }
+
     protected final void generateConstants(LexerData data) {
-        List<RExpression> expressions = new ArrayList<>();
-        for (TokenProduction tp : data.getTokenProductions()) {
-            for (RegExprSpec res : tp.getRespecs()) {
+        var expressions = new ArrayList<RExpression>();
+        for (var  tp : data.getTokenProductions()) {
+            for (var  res : tp.getRespecs()) {
                 expressions.add(res.rexp);
             }
         }
 
-        TemplateOptions options = new TemplateOptions(data.options());
+        var options = new TemplateLambda(data.options());
         options.add("STATES", data.getStateCount()).set("name", data::getStateName);
         options.add("TOKENS", data.getOrderedsTokens()).set("ordinal", RExpression::getOrdinal)
-                .set("label", RExpression::getLabel);
+            .set("label", RExpression::getLabel);
+        options.add("PRODUCTIONS_COUNT", expressions.size() + 1);
         options.add("PRODUCTIONS", expressions).set("label", re -> {
             StringBuilder buffer = new StringBuilder();
 
@@ -122,19 +127,18 @@ class JavaLexerGenerator extends LexerGenerator {
             return buffer.toString();
         });
 
-        TemplateProvider.render(JavaTemplate.PARSER_CONSTANTS, options, data.getParserName());
+        RustTemplate.PARSER_CONSTANTS.render(options);
     }
 
     @Override
     protected final Language getLanguage() {
-        return Language.JAVA;
+        return Language.RUST;
     }
 
     private void DumpStaticVarDeclarations(SourceWriter writer, LexerData data) {
         if (data.maxLexStates() > 1) {
             writer.new_line();
-            writer.println("/** Lex State array. */");
-            writer.append("public static final int[] jjnewLexState = {");
+            writer.append("const JJNEW_LEX_STATE : [i8; " + data.maxOrdinal() + "] = [");
 
             for (int i = 0; i < data.maxOrdinal(); i++) {
                 if ((i % 25) == 0) {
@@ -148,31 +152,31 @@ class JavaLexerGenerator extends LexerGenerator {
                     writer.append(data.getStateIndex(data.newLexState(i)) + ", ");
                 }
             }
-            writer.println("\n};");
+            writer.println("\n];");
         }
 
         if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
             // Bit vector for TOKEN
-            writer.append("static final long[] jjtoToken = {");
+            writer.append("const JJTO_TOKEN : [u64; " + ((data.maxOrdinal() / 64) + 1) + "] = [");
             for (int i = 0; i < ((data.maxOrdinal() / 64) + 1); i++) {
                 if ((i % 4) == 0) {
                     writer.append("\n   ");
                 }
                 writer.append(toHexString(data.toToken(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.println("\n];");
         }
 
         if (data.hasSkip() || data.hasSpecial()) {
             // Bit vector for SKIP
-            writer.append("static final long[] jjtoSkip = {");
+            writer.append("const JJTO_SKIP : [u64; " + ((data.maxOrdinal() / 64) + 1) + "] = [");
             for (int i = 0; i < ((data.maxOrdinal() / 64) + 1); i++) {
                 if ((i % 4) == 0) {
                     writer.append("\n   ");
                 }
                 writer.append(toHexString(data.toSkip(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.println("\n];");
         }
 
         if (data.hasSpecial()) {
@@ -202,16 +206,16 @@ class JavaLexerGenerator extends LexerGenerator {
 
     private void DumpGetNextToken(SourceWriter writer, LexerData data) {
         if ((data.getNextStateForEof() != null) || (data.getActionForEof() != null)) {
-            writer.println("      TokenLexicalActions(matchedToken);");
+            writer.println("self.token_lexical_actions(matched_token);");
         }
 
-        writer.println("      return matchedToken;");
-        writer.println("   }");
+        writer.println("return matched_token;");
+        writer.println("      }");
 
         if (data.hasMoreActions() || data.hasSkipActions() || data.hasTokenActions()) {
             writer.println("   image = jjimage;");
             writer.println("   image.setLength(0);");
-            writer.println("   jjimageLen = 0;");
+            writer.println("   jjimage_len = 0;");
         }
 
         writer.println("");
@@ -227,60 +231,58 @@ class JavaLexerGenerator extends LexerGenerator {
         String caseStr = "";
         // this also sets up the start state of the nfa
         if (data.maxLexStates() > 1) {
-            writer.println(prefix + "   switch(curLexState)");
-            writer.println(prefix + "   {");
+            writer.println(prefix + "   match self.cur_lex_state {");
             endSwitch = prefix + "   }";
-            caseStr = prefix + "     case ";
+            caseStr = prefix + " => {";
             prefix += "    ";
         }
 
         prefix += "   ";
         for (int i = 0; i < data.maxLexStates(); i++) {
-            if (data.maxLexStates() > 1) {
-                writer.println(caseStr + i + ":");
-            }
+            if (data.maxLexStates() > 1)
+                writer.println(i + caseStr);
 
             if (data.singlesToSkip(i).HasTransitions()) {
                 // added the backup(0) to make JIT happy
-                writer.println(prefix + "try { input_stream.backup(0);");
+                writer.println("try { input_stream.backup(0);");
                 if ((data.singlesToSkip(i).asciiMoves[0] != 0L) && (data.singlesToSkip(i).asciiMoves[1]
                         != 0L)) {
                     writer.println(
-                            prefix + "   while ((curChar < 64" + " && (0x" + Long.toHexString(
+                            prefix + "   while ((cur_char < 64" + " && (0x" + Long.toHexString(
                                     data.singlesToSkip(i).asciiMoves[0])
-                                    + "L & (1L << curChar)) != 0L) || \n" + prefix + "          (curChar >> 6) == 1"
+                                    + "L & (1L << cur_char)) != 0L) || \n" + prefix + "          (cur_char >> 6) == 1"
                                     + " && (0x"
                                     + Long.toHexString(data.singlesToSkip(i).asciiMoves[1])
-                                    + "L & (1L << (curChar & 077))) != 0L)");
+                                    + "L & (1L << (cur_char & 0o77))) != 0L)");
                 }
                 else if (data.singlesToSkip(i).asciiMoves[1] == 0L) {
                     writer.println(
-                            prefix + "   while (curChar <= " + (int) LexerGenerator.MaxChar(
+                            prefix + "   while (cur_char <= " + (int) LexerGenerator.MaxChar(
                                     data.singlesToSkip(i).asciiMoves[0])
                                     + " && (0x" + Long.toHexString(data.singlesToSkip(i).asciiMoves[0])
-                                    + "L & (1L << curChar)) != 0L)");
+                                    + "L & (1L << cur_char)) != 0L)");
                 }
                 else if (data.singlesToSkip(i).asciiMoves[0] == 0L) {
-                    writer.println(prefix + "   while (curChar > 63 && curChar <= "
+                    writer.println(prefix + "   while (cur_char > 63 && cur_char <= "
                             + (LexerGenerator.MaxChar(data.singlesToSkip(i).asciiMoves[1]) + 64) + " && (0x"
                             + Long.toHexString(data.singlesToSkip(i).asciiMoves[1])
-                            + "L & (1L << (curChar & 077))) != 0L)");
+                            + "L & (1L << (cur_char & 0o77))) != 0L)");
                 }
 
                 if (data.options().getDebugTokenManager()) {
                     writer.println(prefix + "{");
                     writer.println("      debugStream.println("
-                            + (data.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                            + "\"Skipping character : \" + TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \")\");");
+                            + (data.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
+                            + "\"Skipping character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \")\");");
                 }
-                writer.println(prefix + "      curChar = input_stream.BeginToken();");
+                writer.println(prefix + "      cur_char = input_stream.begin_token();");
 
                 if (data.options().getDebugTokenManager()) {
                     writer.println(prefix + "}");
                 }
 
                 writer.println(prefix + "}");
-                writer.println(prefix + "catch (java.io.IOException e1) { continue EOFLoop; }");
+                writer.println(prefix + "catch (java.io.IOException e1) { break 'EOFLoop; }");
             }
 
             if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
@@ -290,59 +292,59 @@ class JavaLexerGenerator extends LexerGenerator {
                                     + data.initMatch(i) + "] + \" token.\");");
                 }
 
-                writer.println(prefix + "jjmatchedKind = " + data.initMatch(i) + ";");
-                writer.println(prefix + "jjmatchedPos = -1;");
-                writer.println(prefix + "curPos = 0;");
+                writer.println(prefix + "self.jjmatched_kind = " + data.initMatch(i) + ";");
+                writer.println(prefix + "self.jjmatched_pos = usize::MAX;");
+                writer.println(prefix + "cur_pos = 0;");
             }
             else {
                 writer.println(
-                        prefix + "jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-                writer.println(prefix + "jjmatchedPos = 0;");
+                        prefix + "self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+                writer.println(prefix + "self.jjmatched_pos = 0;");
             }
 
             if (data.options().getDebugTokenManager()) {
                 writer.println("      debugStream.println("
-                        + (data.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                        + "\"Current character : \" + TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \") "
-                        + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
+                        + (data.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
+                        + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
+                        + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
             }
 
-            writer.println(prefix + "curPos = jjMoveStringLiteralDfa0_" + i + "();");
+            writer.println(prefix + "cur_pos = self.jj_move_string_literal_dfa0_" + i + "();");
             if (data.canMatchAnyChar(i) != -1) {
                 if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
-                    writer.println(prefix + "if (jjmatchedPos < 0 || (jjmatchedPos == 0 && jjmatchedKind > "
-                            + data.canMatchAnyChar(i) + "))");
+                    writer.println(prefix + "if self.jjmatched_pos < 0 || self.jjmatched_pos == 0 && self.jjmatched_kind > "
+                            + data.canMatchAnyChar(i) + ") {");
                 }
                 else {
                     writer.println(
-                            prefix + "if (jjmatchedPos == 0 && jjmatchedKind > " + data.canMatchAnyChar(i) + ")");
+                            prefix + "if self.jjmatched_pos == 0 && self.jjmatched_kind > " + data.canMatchAnyChar(i) + " {");
                 }
-                writer.println(prefix + "{");
 
                 if (data.options().getDebugTokenManager()) {
                     writer.println(
                             "           debugStream.println(\"   Current character matched as a \" + tokenImage["
                                     + data.canMatchAnyChar(i) + "] + \" token.\");");
                 }
-                writer.println(prefix + "   jjmatchedKind = " + data.canMatchAnyChar(i) + ";");
+                writer.println(prefix + "   self.jjmatched_kind = " + data.canMatchAnyChar(i) + ";");
 
                 if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
-                    writer.println(prefix + "   jjmatchedPos = 0;");
+                    writer.println(prefix + "   self.jjmatched_pos = 0;");
                 }
 
                 writer.println(prefix + "}");
             }
 
             if (data.maxLexStates() > 1) {
-                writer.println(prefix + "break;");
+                writer.println("}");
             }
         }
 
         if (data.maxLexStates() > 1) {
+            writer.println("   _ => {}");
             writer.println(endSwitch);
         }
         else if (data.maxLexStates() == 0) {
-            writer.println("       jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+            writer.println("       self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
         }
 
         if (data.maxLexStates() > 1) {
@@ -354,52 +356,47 @@ class JavaLexerGenerator extends LexerGenerator {
 
         if (data.maxLexStates() > 0) {
             writer.println(
-                    prefix + "   if (jjmatchedKind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")");
-            writer.println(prefix + "   {");
-            writer.println(prefix + "      if (jjmatchedPos + 1 < curPos)");
+                    prefix + "   if self.jjmatched_kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {");
+            writer.println(prefix + "      if self.jjmatched_pos + 1 < cur_pos {");
 
             if (data.options().getDebugTokenManager()) {
-                writer.println(prefix + "      {");
                 writer.println(prefix + "         debugStream.println("
-                        + "\"   Putting back \" + (curPos - jjmatchedPos - 1) + \" characters into the input stream.\");");
+                        + "\"   Putting back \" + (cur_pos - jjmatched_pos - 1) + \" characters into the input stream.\");");
             }
 
-            writer.println(prefix + "         input_stream.backup(curPos - jjmatchedPos - 1);");
-
-            if (data.options().getDebugTokenManager()) {
-                writer.println(prefix + "      }");
-            }
+            writer.println(prefix + "         self.input_stream.backup(cur_pos - self.jjmatched_pos - 1);");
+            writer.println(prefix + "      }");
 
             if (data.options().getDebugTokenManager()) {
                 writer.println("    debugStream.println("
-                        + "\"****** FOUND A \" + tokenImage[jjmatchedKind] + \" MATCH "
-                        + "(\" + TokenException.addEscapes(new String(input_stream.GetSuffix(jjmatchedPos + 1))) + "
+                        + "\"****** FOUND A \" + tokenImage[jjmatched_kind] + \" MATCH "
+                        + "(\" + TokenException.addEscapes(new String(input_stream.GetSuffix(jjmatched_pos + 1))) + "
                         + "\") ******\\n\");");
             }
 
             if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
                 writer
-                        .println(prefix + "      if ((jjtoToken[jjmatchedKind >> 6] & "
-                                + "(1L << (jjmatchedKind & 077))) != 0L)");
-                writer.println(prefix + "      {");
+                        .println(prefix + "      if (JJTO_TOKEN[(self.jjmatched_kind >> 6) as usize] & "
+                                + "(1 << (self.jjmatched_kind & 0o77))) != 0 {");
             }
 
-            writer.println(prefix + "         matchedToken = jjFillToken();");
+            writer.println(prefix + "         matched_token = self.jj_fill_token();");
 
             if (data.hasSpecial()) {
-                writer.println(prefix + "         matchedToken.specialToken = specialToken;");
+                writer.println(prefix + "         matched_token.specialToken = specialToken;");
             }
 
             if (data.hasTokenActions()) {
-                writer.println(prefix + "         TokenLexicalActions(matchedToken);");
+                writer.println(prefix + "         self.token_lexical_actions(matched_token);");
             }
 
             if (data.maxLexStates() > 1) {
-                writer.println("       if (jjnewLexState[jjmatchedKind] != -1)");
-                writer.println(prefix + "       curLexState = jjnewLexState[jjmatchedKind];");
+                writer.println("       if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 {");
+                writer.println(prefix + "       self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];");
+                writer.println("       }");
             }
 
-            writer.println(prefix + "         return matchedToken;");
+            writer.println(prefix + "         return matched_token;");
 
             if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
                 writer.println(prefix + "      }");
@@ -407,8 +404,8 @@ class JavaLexerGenerator extends LexerGenerator {
                 if (data.hasSkip() || data.hasSpecial()) {
                     if (data.hasMore()) {
                         writer.println(
-                                prefix + "      else if ((jjtoSkip[jjmatchedKind >> 6] & "
-                                        + "(1L << (jjmatchedKind & 077))) != 0L)");
+                                prefix + "      else if (self.JJTO_SKIP[self.jjmatched_kind >> 6] & "
+                                        + "(1 << (jjmatched_kind & 0o77))) != 0");
                     }
                     else {
                         writer.println(prefix + "      else");
@@ -418,70 +415,72 @@ class JavaLexerGenerator extends LexerGenerator {
 
                     if (data.hasSpecial()) {
                         writer.println(
-                                prefix + "         if ((jjtoSpecial[jjmatchedKind >> 6] & "
-                                        + "(1L << (jjmatchedKind & 077))) != 0L)");
-                        writer.println(prefix + "         {");
+                                prefix + "         if (self.jjtoSpecial[self.jjmatched_kind >> 6] & "
+                                        + "(1 << (self.jjmatched_kind & 0o77))) != 0 {");
 
-                        writer.println(prefix + "            matchedToken = jjFillToken();");
-
-                        writer.println(prefix + "            if (specialToken == null)");
-                        writer.println(prefix + "               specialToken = matchedToken;");
-                        writer.println(prefix + "            else");
-                        writer.println(prefix + "            {");
-                        writer.println(prefix + "               matchedToken.specialToken = specialToken;");
+                        writer.println(prefix + "            matched_token = self.jj_fill_token();");
                         writer.println(
-                                prefix + "               specialToken = (specialToken.next = matchedToken);");
+                                prefix + "         }");
+
+                        writer.println(prefix + "            if specialToken == null {");
+                        writer.println(prefix + "               specialToken = matched_token;");
+                        writer.println(prefix + "            } else {");
+                        writer.println(prefix + "               matched_token.specialToken = specialToken;");
+                        writer.println(prefix + "               specialToken = (specialToken.next = matched_token);");
                         writer.println(prefix + "            }");
 
                         if (data.hasSkipActions()) {
-                            writer.println(prefix + "            SkipLexicalActions(matchedToken);");
+                            writer.println(prefix + "            self.skip_lexical_actions(matched_token);");
                         }
 
                         writer.println(prefix + "         }");
 
                         if (data.hasSkipActions()) {
-                            writer.println(prefix + "         else");
-                            writer.println(prefix + "            SkipLexicalActions(null);");
+                            writer.println(prefix + "         } else {");
+                            writer.println(prefix + "            self.skip_lexical_actions(null);");
+                            writer.println(prefix + "         }");
                         }
                     }
                     else if (data.hasSkipActions()) {
-                        writer.println(prefix + "         SkipLexicalActions(null);");
+                        writer.println(prefix + "         self.skip_lexical_actions(null);");
                     }
 
                     if (data.maxLexStates() > 1) {
-                        writer.println("         if (jjnewLexState[jjmatchedKind] != -1)");
-                        writer.println(prefix + "         curLexState = jjnewLexState[jjmatchedKind];");
+                        writer.println("         if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 {");
+                        writer.println(prefix + "         self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];");
+                        writer.println("         }");
                     }
 
-                    writer.println(prefix + "         continue EOFLoop;");
+                    writer.println(prefix + "         break 'EOFLoop;");
                     writer.println(prefix + "      }");
                 }
 
                 if (data.hasMore()) {
                     if (data.hasMoreActions()) {
-                        writer.println(prefix + "      MoreLexicalActions();");
+                        writer.println(prefix + "      self.more_lexical_actions();");
                     }
                     else if (data.hasSkipActions() || data.hasTokenActions()) {
-                        writer.println(prefix + "      jjimageLen += jjmatchedPos + 1;");
+                        writer.println(prefix + "      self.jjimage_len += self.jjmatched_pos + 1;");
                     }
 
                     if (data.maxLexStates() > 1) {
-                        writer.println("      if (jjnewLexState[jjmatchedKind] != -1)");
-                        writer.println(prefix + "      curLexState = jjnewLexState[jjmatchedKind];");
+                        writer.println("      if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 7");
+                        writer.println(prefix + "      self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];");
+                        writer.println("      }");
                     }
-                    writer.println(prefix + "      curPos = 0;");
+                    writer.println(prefix + "      cur_pos = 0;");
                     writer.println(
-                            prefix + "      jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+                            prefix + "      self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
 
                     writer.println(prefix + "      try {");
-                    writer.println(prefix + "         curChar = input_stream.readChar();");
+                    writer.println(prefix + "         cur_char = input_stream.read_char();");
 
                     if (data.options().getDebugTokenManager()) {
                         writer.println("   debugStream.println("
-                                + (data.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
+                                + (data.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
                                 + "\"Current character : \" + "
-                                + "TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \") "
-                                + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
+                                + "TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
+                                + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
                     }
                     writer.println(prefix + "         continue;");
                     writer.println(prefix + "      }");
@@ -490,27 +489,38 @@ class JavaLexerGenerator extends LexerGenerator {
             }
 
             writer.println(prefix + "   }");
-            writer.println(prefix + "   int error_line = input_stream.getEndLine();");
-            writer.println(prefix + "   int error_column = input_stream.getEndColumn();");
-            writer.println(prefix + "   String error_after = null;");
-            writer.println(prefix + "   boolean EOFSeen = false;");
-            writer.println(prefix + "   try { input_stream.readChar(); input_stream.backup(1); }");
-            writer.println(prefix + "   catch (java.io.IOException e1) {");
-            writer.println(prefix + "      EOFSeen = true;");
-            writer.println(prefix + "      error_after = curPos <= 1 ? \"\" : input_stream.GetImage();");
-            writer.println(prefix + "      if (curChar == '\\n' || curChar == '\\r') {");
-            writer.println(prefix + "         error_line++;");
-            writer.println(prefix + "         error_column = 0;");
-            writer.println(prefix + "      }");
-            writer.println(prefix + "      else");
-            writer.println(prefix + "         error_column++;");
-            writer.println(prefix + "   }");
-            writer.println(prefix + "   if (!EOFSeen) {");
-            writer.println(prefix + "      input_stream.backup(1);");
-            writer.println(prefix + "      error_after = curPos <= 1 ? \"\" : input_stream.GetImage();");
-            writer.println(prefix + "   }");
-            writer.println(prefix + "   throw new TokenException("
-                    + "EOFSeen, curLexState, error_line, error_column, error_after, curChar, TokenException.LEXICAL_ERROR);");
+            writer.println("""
+                 let mut error_line = self.input_stream.get_end_line();
+                 let mut error_column = self.input_stream.get_end_column();
+                 let mut error_after = String::new();
+                 let mut eof_seen = false;
+                 let result = self.input_stream.read_char();
+                 if result.is_ok() {
+                    self.input_stream.backup(1);
+                 } else {
+                    eof_seen = true;
+                    if cur_pos <= 1 {
+                      error_after = String::new();
+                   } else {
+                      error_after = self.input_stream.get_image();
+                   }
+                   if self.cur_char == '\\n'.try_into().unwrap() || self.cur_char == '\\r'.try_into().unwrap() {
+                      error_line += 1;
+                      error_column = 0;
+                   } else {
+                      error_column += 1;
+                   }
+                 }
+                 if !eof_seen {
+                    self.input_stream.backup(1);
+                    if cur_pos <= 1 {
+                       error_after = String::new();
+                    } else {
+                       error_after = self.input_stream.get_image();
+                    }
+                 }
+                 panic!("Lexical error at line {}, column {} with error: {}", error_line, error_column, error_after);
+                """);
         }
 
         if (data.hasMore()) {
@@ -534,21 +544,21 @@ class JavaLexerGenerator extends LexerGenerator {
                 writer.println("      case " + i + " :");
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatchedPos == -1)");
+                    writer.println("         if (jjmatched_pos == -1)");
                     writer.println("         {");
                     writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
                     writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == input_stream.getBeginLine() &&");
+                            + "] == input_stream.get_begin_line() &&");
                     writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == input_stream.getBeginColumn())");
+                            + "] == input_stream.get_begin_column())");
                     writer.println("               throw new TokenException("
                             + "(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
-                            + "at line \" + input_stream.getBeginLine() + \", "
-                            + "column \" + input_stream.getBeginColumn() + \".\"), TokenException.LOOP_DETECTED);");
+                            + "at line \" + input_stream.get_begin_line() + \", "
+                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);");
                     writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.getBeginLine();");
+                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();");
                     writer.println("            jjemptyColNo[" + data.getState(i)
-                            + "] = input_stream.getBeginColumn();");
+                            + "] = input_stream.get_begin_column();");
                     writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
                     writer.println("         }");
                 }
@@ -559,12 +569,12 @@ class JavaLexerGenerator extends LexerGenerator {
 
                 writer.append("         image.append");
                 if (data.getImage(i) != null) {
-                    writer.println("(jjstrLiteralImages[" + i + "]);");
-                    writer.println("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();");
+                    writer.println("(JJSTR_LITERAL_IMAGES[" + i + "]);");
+                    writer.println("        length_of_match = JJSTR_LITERAL_IMAGES[" + i + "].length();");
                 }
                 else {
                     writer.println(
-                            "(input_stream.GetSuffix(jjimageLen + (lengthOfMatch = jjmatchedPos + 1)));");
+                            "(input_stream.GetSuffix(jjimage_len + (length_of_match = jjmatched_pos + 1)));");
                 }
 
                 genTokenSetup(act.getActionTokens().getFirst());
@@ -598,21 +608,21 @@ class JavaLexerGenerator extends LexerGenerator {
                 writer.println("      case " + i + " :");
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatchedPos == -1)");
+                    writer.println("         if (jjmatched_pos == -1)");
                     writer.println("         {");
                     writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
                     writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == input_stream.getBeginLine() &&");
+                            + "] == input_stream.get_begin_line() &&");
                     writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == input_stream.getBeginColumn())");
+                            + "] == input_stream.get_begin_column())");
                     writer.println("               throw new TokenException("
                             + "(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
-                            + "at line \" + input_stream.getBeginLine() + \", "
-                            + "column \" + input_stream.getBeginColumn() + \".\"), TokenException.LOOP_DETECTED);");
+                            + "at line \" + input_stream.get_begin_line() + \", "
+                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);");
                     writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.getBeginLine();");
+                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();");
                     writer.println("            jjemptyColNo[" + data.getState(i)
-                            + "] = input_stream.getBeginColumn();");
+                            + "] = input_stream.get_begin_column();");
                     writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
                     writer.println("         }");
                 }
@@ -624,13 +634,13 @@ class JavaLexerGenerator extends LexerGenerator {
                 writer.append("         image.append");
 
                 if (data.getImage(i) != null) {
-                    writer.println("(jjstrLiteralImages[" + i + "]);");
+                    writer.println("(JJSTR_LITERAL_IMAGES[" + i + "]);");
                 }
                 else {
-                    writer.println("(input_stream.GetSuffix(jjimageLen));");
+                    writer.println("(input_stream.GetSuffix(jjimage_len));");
                 }
 
-                writer.println("         jjimageLen = 0;");
+                writer.println("         jjimage_len = 0;");
                 genTokenSetup(act.getActionTokens().getFirst());
                 resetColumn();
 
@@ -665,21 +675,21 @@ class JavaLexerGenerator extends LexerGenerator {
                 writer.println("      case " + i + " :");
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatchedPos == -1)");
+                    writer.println("         if (jjmatched_pos == -1)");
                     writer.println("         {");
                     writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
                     writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == input_stream.getBeginLine() &&");
+                            + "] == input_stream.get_begin_line() &&");
                     writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == input_stream.getBeginColumn())");
+                            + "] == input_stream.get_begin_column())");
                     writer.println("               throw new TokenException("
                             + "(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
-                            + "at line \" + input_stream.getBeginLine() + \", "
-                            + "column \" + input_stream.getBeginColumn() + \".\"), TokenException.LOOP_DETECTED);");
+                            + "at line \" + input_stream.get_begin_line() + \", "
+                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);");
                     writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.getBeginLine();");
+                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();");
                     writer.println("            jjemptyColNo[" + data.getState(i)
-                            + "] = input_stream.getBeginColumn();");
+                            + "] = input_stream.get_begin_column();");
                     writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
                     writer.println("         }");
                 }
@@ -695,12 +705,12 @@ class JavaLexerGenerator extends LexerGenerator {
                     writer.append("        image.append");
 
                     if (data.getImage(i) != null) {
-                        writer.println("(jjstrLiteralImages[" + i + "]);");
-                        writer.println("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();");
+                        writer.println("(JJSTR_LITERAL_IMAGES[" + i + "]);");
+                        writer.println("        length_of_match = JJSTR_LITERAL_IMAGES[" + i + "].length();");
                     }
                     else {
                         writer.println(
-                                "(input_stream.GetSuffix(jjimageLen + (lengthOfMatch = jjmatchedPos + 1)));");
+                                "(input_stream.GetSuffix(jjimage_len + (length_of_match = jjmatched_pos + 1)));");
                     }
                 }
 
@@ -721,8 +731,14 @@ class JavaLexerGenerator extends LexerGenerator {
 
     private void DumpStateSets(SourceWriter writer, LexerData data) {
         int cnt = 0;
+        int length = 0;
+        for (int[] set : data.getOrderedStateSet()) {
+            for (int element : set) {
+                length++;
+            }
+        }
 
-        writer.append("static final int[] jjnextStates = {");
+        writer.append("const JJNEXT_STATES : [usize; " + length + "] = [");
         if (!data.getOrderedStateSet().isEmpty()) {
             for (int[] set : data.getOrderedStateSet()) {
                 for (int element : set) {
@@ -738,12 +754,13 @@ class JavaLexerGenerator extends LexerGenerator {
             writer.append("0");
         }
 
-        writer.println("\n};");
+        writer.println("\n];");
     }
 
-    private static String getStrLiteralImages(LexerData data) {
+    private static List<String> getStrLiteralImageList(LexerData data) {
+        var list = new ArrayList<String>();
         if (data.getImageCount() <= 0) {
-            return "";
+            return list;
         }
 
         String image;
@@ -752,63 +769,54 @@ class JavaLexerGenerator extends LexerGenerator {
 
         data.setImage(0, "");
 
-        var buffer = new StringWriter();
-        var writer = TemplateOptions.createWriter(buffer);
         for (i = 0; i < data.getImageCount(); i++) {
             if (((image = data.getImage(i)) == null)
-                    || (((data.toSkip(i / 64) & (1L << (i % 64))) == 0L) && (
-                    (data.toMore(i / 64) & (1L << (i % 64))) == 0L)
-                    && ((data.toToken(i / 64) & (1L << (i % 64))) == 0L))
-                    || ((data.toSkip(i / 64) & (1L << (i % 64))) != 0L) || (
-                    (data.toMore(i / 64) & (1L << (i % 64))) != 0L)
-                    || data.canReachOnMore(data.getState(i))
-                    || ((data.ignoreCase() || data.ignoreCase(i)) && (
-                    !image.equals(image.toLowerCase(Locale.ENGLISH))
-                            || !image.equals(image.toUpperCase(Locale.ENGLISH))))) {
+                || (((data.toSkip(i / 64) & (1L << (i % 64))) == 0L) && (
+                (data.toMore(i / 64) & (1L << (i % 64))) == 0L)
+                && ((data.toToken(i / 64) & (1L << (i % 64))) == 0L))
+                || ((data.toSkip(i / 64) & (1L << (i % 64))) != 0L) || (
+                (data.toMore(i / 64) & (1L << (i % 64))) != 0L)
+                || data.canReachOnMore(data.getState(i))
+                || ((data.ignoreCase() || data.ignoreCase(i)) && (
+                !image.equals(image.toLowerCase(Locale.ENGLISH))
+                    || !image.equals(image.toUpperCase(Locale.ENGLISH))))) {
                 data.setImage(i, null);
                 if ((charCnt += 6) > 80) {
-                    writer.println("");
                     charCnt = 0;
                 }
 
-                writer.append("null, ");
+                list.add(null);
                 continue;
             }
 
-            String toPrint = "\"";
+            String toPrint = "";
             for (int j = 0; j < image.length(); j++) {
                 if (image.charAt(j) <= 0xff) {
-                    toPrint += ("\\" + Integer.toOctalString(image.charAt(j)));
+                    toPrint += ("0o" + Integer.toOctalString(image.charAt(j))) + ";";
                 }
                 else {
                     String hexVal = Integer.toHexString(image.charAt(j));
                     if (hexVal.length() == 3) {
-                        hexVal = "0" + hexVal;
+                        hexVal = "0x" + hexVal + ";";
                     }
                     toPrint += ("\\u" + hexVal);
                 }
             }
 
-            toPrint += ("\", ");
-
             if ((charCnt += toPrint.length()) >= 80) {
-                writer.println("");
                 charCnt = 0;
             }
 
-            writer.append(toPrint);
+            list.add(toPrint);
         }
 
         while (++i < data.maxOrdinal()) {
             if ((charCnt += 6) > 80) {
-                writer.println("");
                 charCnt = 0;
             }
-
-            writer.append("null, ");
+            list.add(null);;
         }
-        buffer.flush();
-        return buffer.toString();
+        return list;
     }
 
     private void DumpStartWithStates(SourceWriter writer, NfaStateData data) {
@@ -816,87 +824,80 @@ class JavaLexerGenerator extends LexerGenerator {
                 "private int " + "jjStartNfaWithStates" + data.getLexerStateSuffix()
                         + "(int pos, int kind, int state)");
         writer.println("{");
-        writer.println("   jjmatchedKind = kind;");
-        writer.println("   jjmatchedPos = pos;");
+        writer.println("   jjmatched_kind = kind;");
+        writer.println("   jjmatched_pos = pos;");
 
         if (data.global.options().getDebugTokenManager()) {
             writer.println(
                     "   debugStream.println(\"   No more string literal token matches are possible.\");");
             writer.println("   debugStream.println(\"   Currently matched the first \" "
-                    + "+ (jjmatchedPos + 1) + \" characters as a \" + tokenImage[jjmatchedKind] + \" token.\");");
+                    + "+ (jjmatched_pos + 1) + \" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");");
         }
 
-        writer.println("   try { curChar = input_stream.readChar(); }");
+        writer.println("   try { cur_char = input_stream.read_char(); }");
         writer.println("   catch(java.io.IOException e) { return pos + 1; }");
 
         if (data.global.options().getDebugTokenManager()) {
             writer.println("   debugStream.println("
-                    + (data.global.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                    + "\"Current character : \" + TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \") "
-                    + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
+                    + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
+                    + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
+                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
         }
-        writer.println("   return jjMoveNfa" + data.getLexerStateSuffix() + "(state, pos + 1);");
+        writer.println("   return jj_move_nfa" + data.getLexerStateSuffix() + "(state, pos + 1);");
         writer.println("}");
     }
 
     @Override
     protected final void DumpHeadForCase(SourceWriter writer, int byteNum) {
-        if (byteNum == 0) {
-            writer.println("         long l = 1L << curChar;");
-        }
-        else if (byteNum == 1) {
-            writer.println("         long l = 1L << (curChar & 077);");
-        }
+        if (byteNum == 0)
+            writer.println("         let l: u64 = 1u64 << self.cur_char;");
+        else if (byteNum == 1)
+            writer.println("         let l: u64 = 1u64 << (self.cur_char & 0o77);");
         else {
-            writer.println("         int hiByte = (curChar >> 8);");
-            writer.println("         int i1 = hiByte >> 6;");
-            writer.println("         long l1 = 1L << (hiByte & 077);");
-            writer.println("         int i2 = (curChar & 0xff) >> 6;");
-            writer.println("         long l2 = 1L << (curChar & 077);");
+            writer.println("         let hi_byte: u32 = self.cur_char >> 8;");
+            writer.println("         let l1: u64 = 1u64 << (hi_byte & 0o77);");
+            writer.println("         let l2: u64 = 1u64 << (self.cur_char & 0o77);");
+            writer.println("         let i1: usize = (hi_byte >> 6) as usize;");
+            writer.println("         let i2: usize = ((self.cur_char & 0xff) >> 6) as usize;");
         }
 
         // writer.println(" MatchLoop: do");
-        writer.println("         do");
-        writer.println("         {");
-
-        writer.println("            switch(jjstateSet[--i])");
-        writer.println("            {");
+        writer.println("         let mut while_cond = true;");
+        writer.println("         while while_cond {");
+        writer.println("            i -= 1;");
+        writer.println("            match self.jjstate_set[i] {");
     }
 
     private void DumpNonAsciiMoveMethod(NfaState state, LexerData data, SourceWriter writer) {
         for (int j = 0; j < state.loByteVec.size(); j += 2) {
-            writer.println("      case " + state.loByteVec.get(j) + ":");
-            if (!NfaState.AllBitsSet(data.getAllBitVectors(state.loByteVec.get(j + 1)))) {
-                writer
-                        .println("         return ((jjbitVec" + state.loByteVec.get(j + 1) + "[i2"
-                                + "] & l2) != 0L);");
-            }
-            else {
-                writer.println("            return true;");
-            }
+            writer.println("      " + state.loByteVec.get(j) + " => {");
+            if (!NfaState.AllBitsSet(data.getAllBitVectors(state.loByteVec.get(j + 1))))
+                writer.println("         return (JJBIT_VEC" + state.loByteVec.get(j + 1) + "[i2] & l2) != 0;");
+            else
+                writer.println("         return true;");
+            writer.println("      }");
         }
 
-        writer.println("      default :");
-
+        writer.println("      _ => {");
         for (int j = state.nonAsciiMoveIndices.length; j > 0; j -= 2) {
-            if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 2]))) {
-                writer.println(
-                        "         if ((jjbitVec" + state.nonAsciiMoveIndices[j - 2] + "[i1] & l1) != 0L)");
-            }
+            if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 2])))
+                writer.println("         if (JJBIT_VEC" + state.nonAsciiMoveIndices[j - 2] + "[i1] & l1) != 0 {");
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 1]))) {
-                writer.println(
-                        "            if ((jjbitVec" + state.nonAsciiMoveIndices[j - 1] + "[i2] & l2) == 0L)");
+                writer.println("            if (JJBIT_VEC" + state.nonAsciiMoveIndices[j - 1] + "[i2] & l2) == 0 {");
                 writer.println("               return false;");
-                writer.println("            else");
+                writer.println("            } else {");
             }
             writer.println("            return true;");
+            writer.println("         }");
         }
+        writer.println("         false");
+        writer.println("      }");
     }
 
     private String getStatesForState(LexerData data) {
         if (data.getStatesForState() == null) {
             assert (false) : "This should never be null.";
-            return "null";
+            return "";
         }
 
         StringBuilder builder = new StringBuilder();
@@ -925,7 +926,7 @@ class JavaLexerGenerator extends LexerGenerator {
 
     private String getKindForState(LexerData data) {
         if (data.getKinds() == null) {
-            return "null";
+            return "";
         }
 
         StringBuilder builder = new StringBuilder();
@@ -953,9 +954,8 @@ class JavaLexerGenerator extends LexerGenerator {
     @Override
     protected final void dumpNfaStartStatesCode(SourceWriter writer, NfaStateData data,
                                                 Hashtable<String, long[]>[] statesForPos) {
-        if (data.getMaxStrKind() == 0) { // No need to generate this function
+        if (data.getMaxStrKind() == 0) // No need to generate this function
             return;
-        }
 
         int i, maxKindsReqd = (data.getMaxStrKind() / 64) + 1;
         boolean condGenerated = false;
@@ -963,19 +963,15 @@ class JavaLexerGenerator extends LexerGenerator {
 
         StringBuilder params = new StringBuilder();
         for (i = 0; i < (maxKindsReqd - 1); i++) {
-            params.append("long active").append(i).append(", ");
+            params.append("active").append(i).append(": u64, ");
         }
-        params.append("long active").append(i).append(")");
+        params.append("active").append(i).append(": u64)");
 
-        writer.append(
-                "private final int jjStopStringLiteralDfa" + data.getLexerStateSuffix() + "(int pos, "
-                        + params);
-        writer.println("{");
+        writer.println("fn jjStopStringLiteralDfa" + data.getLexerStateSuffix() +
+            "(&self, pos: usize, " + params+ " -> usize {");
 
-        if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "      debugStream.println(\"   No more string literal token matches are possible.\");");
-        }
+        if (data.global.options().getDebugTokenManager())
+            writer.println("      debugStream.println(\"   No more string literal token matches are possible.\");");
 
         writer.println("   switch (pos)");
         writer.println("   {");
@@ -1022,36 +1018,36 @@ class JavaLexerGenerator extends LexerGenerator {
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
                         if (i == 0) {
-                            writer.println("            jjmatchedKind = " + kindStr + ";");
+                            writer.println("            jjmatched_kind = " + kindStr + ";");
 
                             if (((data.global.initMatch(data.getStateIndex()) != 0)
                                     && (data.global.initMatch(data.getStateIndex()) != Integer.MAX_VALUE))) {
-                                writer.println("            jjmatchedPos = 0;");
+                                writer.println("            jjmatched_pos = 0;");
                             }
                         }
                         else if (i == jjmatchedPos) {
                             if (data.isSubStringAtPos(i)) {
-                                writer.println("            if (jjmatchedPos != " + i + ")");
+                                writer.println("            if (jjmatched_pos != " + i + ")");
                                 writer.println("            {");
-                                writer.println("               jjmatchedKind = " + kindStr + ";");
-                                writer.println("               jjmatchedPos = " + i + ";");
+                                writer.println("               jjmatched_kind = " + kindStr + ";");
+                                writer.println("               jjmatched_pos = " + i + ";");
                                 writer.println("            }");
                             }
                             else {
-                                writer.println("            jjmatchedKind = " + kindStr + ";");
-                                writer.println("            jjmatchedPos = " + i + ";");
+                                writer.println("            jjmatched_kind = " + kindStr + ";");
+                                writer.println("            jjmatched_pos = " + i + ";");
                             }
                         }
                         else {
                             if (jjmatchedPos > 0) {
-                                writer.println("            if (jjmatchedPos < " + jjmatchedPos + ")");
+                                writer.println("            if (jjmatched_pos < " + jjmatchedPos + ")");
                             }
                             else {
-                                writer.println("            if (jjmatchedPos == 0)");
+                                writer.println("            if (jjmatched_pos == 0)");
                             }
                             writer.println("            {");
-                            writer.println("               jjmatchedKind = " + kindStr + ";");
-                            writer.println("               jjmatchedPos = " + jjmatchedPos + ";");
+                            writer.println("               jjmatched_kind = " + kindStr + ";");
+                            writer.println("               jjmatched_pos = " + jjmatchedPos + ";");
                             writer.println("            }");
                         }
                     }
@@ -1096,7 +1092,7 @@ class JavaLexerGenerator extends LexerGenerator {
         if (data.isMixedState()) {
             if (data.generatedStates() != 0) {
                 writer.println(
-                        "   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)
+                        "   return jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)
                                 + ", pos + 1);");
             }
             else {
@@ -1107,7 +1103,7 @@ class JavaLexerGenerator extends LexerGenerator {
             return;
         }
 
-        writer.append("   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + "jjStopStringLiteralDfa"
+        writer.append("   return jj_move_nfa" + data.getLexerStateSuffix() + "(" + "jjStopStringLiteralDfa"
                 + data.getLexerStateSuffix() + "(pos, ");
         for (i = 0; i < (maxKindsReqd - 1); i++) {
             writer.append("active" + i + ", ");
@@ -1127,213 +1123,190 @@ class JavaLexerGenerator extends LexerGenerator {
         boolean ifGenerated;
 
         if (data.getMaxLen() == 0) {
-            writer.println(
-                    "private int " + "jjMoveStringLiteralDfa0" + data.getLexerStateSuffix() + "()");
+            writer.println("fn jj_move_string_literal_dfa0" + data.getLexerStateSuffix() + "(&self) -> usize ");
             DumpNullStrLiterals(writer, data);
             return;
         }
 
         if (!data.global.boilerPlateDumped) {
-            writer.println("private int " + "jjStopAtPos(int pos, int kind)");
-            writer.println("{");
-            writer.println("   jjmatchedKind = kind;");
-            writer.println("   jjmatchedPos = pos;");
+            writer.println("fn jj_stop_at_pos(&mut self, pos: usize, kind: u32) -> usize {");
+            writer.println("   self.jjmatched_kind = kind;");
+            writer.println("   self.jjmatched_pos = pos;");
 
             if (data.global.options().getDebugTokenManager()) {
                 writer.println(
                         "   debugStream.println(\"   No more string literal token matches are possible.\");");
                 writer.println(
-                        "   debugStream.println(\"   Currently matched the first \" + (jjmatchedPos + 1) + "
-                                + "\" characters as a \" + tokenImage[jjmatchedKind] + \" token.\");");
+                        "   debugStream.println(\"   Currently matched the first \" + (jjmatched_pos + 1) + "
+                                + "\" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");");
             }
 
-            writer.println("   return pos + 1;");
+            writer.println("   pos + 1");
             writer.println("}");
             data.global.boilerPlateDumped = true;
         }
 
         for (i = 0; i < data.getMaxLen(); i++) {
-            boolean atLeastOne = false;
             boolean startNfaNeeded = false;
             tab = data.getCharPosKind(i);
             String[] keys = LexerGenerator.ReArrange(tab);
 
             StringBuilder params = new StringBuilder();
-            params.append("(");
+            params.append("(&mut self");
             if (i != 0) {
                 if (i == 1) {
                     for (j = 0; j < (maxLongsReqd - 1); j++) {
                         if (i <= data.getMaxLenForActive(j)) {
-                            if (atLeastOne) {
-                                params.append(", ");
-                            }
-                            else {
-                                atLeastOne = true;
-                            }
-                            params.append("long active").append(j);
+                            params.append(", active").append(j).append(": u64");
                         }
                     }
 
                     if (i <= data.getMaxLenForActive(j)) {
-                        if (atLeastOne) {
-                            params.append(", ");
-                        }
-                        params.append("long active").append(j);
+                        params.append(", active").append(j).append(": u64");
                     }
                 }
                 else {
                     for (j = 0; j < (maxLongsReqd - 1); j++) {
                         if (i <= (data.getMaxLenForActive(j) + 1)) {
-                            if (atLeastOne) {
-                                params.append(", ");
-                            }
-                            else {
-                                atLeastOne = true;
-                            }
-                            params.append("long old").append(j).append(", ").append("long active").append(j);
+                            params.append(", old").append(j).append(": u64, ")
+                                .append("active_old").append(j).append(": u64");
                         }
                     }
 
                     if (i <= (data.getMaxLenForActive(j) + 1)) {
-                        if (atLeastOne) {
-                            params.append(", ");
-                        }
-                        params.append("long old").append(j).append(", ").append("long active").append(j);
+                        params.append(", old").append(j).append(": u64, ")
+                            .append("active_old").append(j).append(": u64");
                     }
                 }
             }
             params.append(")");
-            writer.append(
-                    "private int " + "jjMoveStringLiteralDfa" + i + data.getLexerStateSuffix() + params);
-            writer.println("{");
 
+            writer.println("fn jj_move_string_literal_dfa" + i + data.getLexerStateSuffix() + params + " -> usize {");
             if (i != 0) {
                 if (i > 1) {
-                    atLeastOne = false;
-                    writer.append("   if ((");
-
+                    var atLeastOne = false;
                     for (j = 0; j < (maxLongsReqd - 1); j++) {
                         if (i <= (data.getMaxLenForActive(j) + 1)) {
-                            if (atLeastOne) {
+                            if (atLeastOne)
                                 writer.append(" | ");
-                            }
-                            else {
+                            else
                                 atLeastOne = true;
-                            }
-                            writer.append("(active" + j + " &= old" + j + ")");
+                            writer.println("   let active" + j + " = active_old" + j + " & old" + j + ";");
                         }
                     }
 
                     if (i <= (data.getMaxLenForActive(j) + 1)) {
-                        if (atLeastOne) {
-                            writer.append(" | ");
-                        }
-                        writer.append("(active" + j + " &= old" + j + ")");
+                        writer.println("   let active" + j + " = active_old" + j + " & old" + j + ";");
                     }
 
-                    writer.println(") == 0L)");
-                    if (!data.isMixedState() && (data.generatedStates() != 0)) {
-                        writer.append(
-                                "      return jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 2) + ", ");
-                        for (j = 0; j < (maxLongsReqd - 1); j++) {
-                            if (i <= (data.getMaxLenForActive(j) + 1)) {
-                                writer.append("old" + j + ", ");
-                            }
-                            else {
-                                writer.append("0L, ");
-                            }
-                        }
+                    atLeastOne = false;
+                    writer.append("   if (");
+
+                    for (j = 0; j < (maxLongsReqd - 1); j++) {
                         if (i <= (data.getMaxLenForActive(j) + 1)) {
+                            if (atLeastOne)
+                                writer.append(" | ");
+                            else
+                                atLeastOne = true;
+                            writer.append("active" + j);
+                        }
+                    }
+
+                    if (i <= (data.getMaxLenForActive(j) + 1)) {
+                        if (atLeastOne)
+                            writer.append(" | ");
+                        writer.append("active" + j);
+                    }
+
+                    writer.println(") == 0 {");
+                    if (!data.isMixedState() && (data.generatedStates() != 0)) {
+                        writer.append("      return self.jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 2) + ", ");
+                        for (j = 0; j < (maxLongsReqd - 1); j++) {
+                            if (i <= (data.getMaxLenForActive(j) + 1))
+                                writer.append("old" + j + ", ");
+                            else
+                                writer.append("0, ");
+                        }
+                        if (i <= (data.getMaxLenForActive(j) + 1))
                             writer.println("old" + j + ");");
-                        }
-                        else {
-                            writer.println("0L);");
-                        }
+                        else
+                            writer.println("0);");
                     }
-                    else if (data.generatedStates() != 0) {
-                        writer.println(
-                                "      return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)
-                                        + ", "
-                                        + (i - 1) + ");");
-                    }
-                    else {
+                    else if (data.generatedStates() != 0)
+                        writer.println("      return self.jj_move_nfa" + data.getLexerStateSuffix() +
+                            "(" + InitStateName(data) + ", " + (i - 1) + ");");
+                    else
                         writer.println("      return " + i + ";");
-                    }
+                    writer.append("   }");
                 }
 
-                if ((i != 0) && data.global.options().getDebugTokenManager()) {
-                    writer.println(
-                            "   if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(
-                                    Integer.MAX_VALUE) + ")");
+                if (data.global.options().getDebugTokenManager()) {
+                    writer.println("   if self.jjmatched_kind != 0 && vjjmatchedKind != 0x" + Integer.toHexString(
+                                    Integer.MAX_VALUE) + " {");
                     writer.println("      debugStream.println(\"   Currently matched the first \" + "
-                            + "(jjmatchedPos + 1) + \" characters as a \" + tokenImage[jjmatchedKind] + \" token.\");");
+                            + "(self.jjmatched_pos + 1) + \" characters as a \" + self.tokenImage[self.jjmatched_kind as usize] + \" token.\");");
                     writer.println("   debugStream.println(\"   Possible string literal matches : { \"");
 
                     for (int vecs = 0; vecs < ((data.getMaxStrKind() / 64) + 1); vecs++) {
                         if (i <= data.getMaxLenForActive(vecs)) {
                             writer.println(" +");
-                            writer.append("         jjKindsForBitVector(" + vecs + ", ");
+                            writer.append("         self.jjKindsForBitVector(" + vecs + ", ");
                             writer.append("active" + vecs + ") ");
                         }
                     }
 
                     writer.println(" + \" } \");");
+                    writer.println("   }");
                 }
+                writer.new_line();
 
-                writer.println("   try { curChar = input_stream.readChar(); }");
-                writer.println("   catch(java.io.IOException e) {");
+                writer.println("   let result = self.input_stream.read_char();");
+                writer.println("   if result.is_err() {");
 
                 if (!data.isMixedState() && (data.generatedStates() != 0)) {
-                    writer.append(
-                            "      jjStopStringLiteralDfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
+                    writer.append("      self.jjStopStringLiteralDfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
                     for (k = 0; k < (maxLongsReqd - 1); k++) {
                         if (i <= data.getMaxLenForActive(k)) {
                             writer.append("active" + k + ", ");
                         }
                         else {
-                            writer.append("0L, ");
+                            writer.append("0, ");
                         }
                     }
 
-                    if (i <= data.getMaxLenForActive(k)) {
+                    if (i <= data.getMaxLenForActive(k))
                         writer.println("active" + k + ");");
-                    }
-                    else {
-                        writer.println("0L);");
-                    }
+                    else
+                        writer.println("0);");
 
-                    if ((i != 0) && data.global.options().getDebugTokenManager()) {
-                        writer.println(
-                                "      if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(
-                                        Integer.MAX_VALUE) + ")");
+                    if (data.global.options().getDebugTokenManager()) {
+                        writer.println("      if self.jjmatched_kind != 0 && self.jjmatched_kind != 0x" +
+                            Integer.toHexString(Integer.MAX_VALUE));
                         writer.println("         debugStream.println(\"   Currently matched the first \" + "
-                                + "(jjmatchedPos + 1) + \" characters as a \" + tokenImage[jjmatchedKind] + \" token.\");");
+                                + "(jjmatched_pos + 1) + \" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");");
                     }
-
                     writer.println("      return " + i + ";");
                 }
-                else if (data.generatedStates() != 0) {
-                    writer.println(
-                            "   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "
-                                    + (i - 1) + ");");
-                }
-                else {
+                else if (data.generatedStates() != 0)
+                    writer.println("     return self.jj_move_nfa" + data.getLexerStateSuffix() +
+                                "(" + InitStateName(data) + ", " + (i - 1) + ");");
+                else
                     writer.println("      return " + i + ";");
-                }
 
                 writer.println("   }");
+                writer.println("   self.cur_char = u32::from(result.unwrap());");
+                writer.new_line();
             }
 
             if ((i != 0) && data.global.options().getDebugTokenManager()) {
                 writer.println("   debugStream.println("
-                        + (data.global.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + "
+                        + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + "
                         : "")
-                        + "\"Current character : \" + TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \") "
-                        + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
+                        + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
+                        + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
             }
 
-            writer.println("   switch(curChar)");
-            writer.println("   {");
+            writer.println("   match self.cur_char {");
 
             CaseLoop:
             for (String key2 : keys) {
@@ -1376,15 +1349,15 @@ class JavaLexerGenerator extends LexerGenerator {
                 // Since we know key is a single character ...
                 if (data.ignoreCase()) {
                     if (c != Character.toUpperCase(c)) {
-                        writer.println("      case " + (int) Character.toUpperCase(c) + ":");
+                        writer.println("      " + (int) Character.toUpperCase(c) + " => {");
                     }
 
                     if (c != Character.toLowerCase(c)) {
-                        writer.println("      case " + (int) Character.toLowerCase(c) + ":");
+                        writer.println("      " + (int) Character.toLowerCase(c) + " => {");
                     }
                 }
 
-                writer.println("      case " + (int) c + ":");
+                writer.println("      " + (int) c + " => {");
 
                 long matchedKind;
                 String prefix = (i == 0) ? "         " : "            ";
@@ -1400,18 +1373,16 @@ class JavaLexerGenerator extends LexerGenerator {
                                 continue;
                             }
 
-                            if (ifGenerated) {
+                            if (ifGenerated)
                                 writer.append("         else if ");
-                            }
-                            else if (i != 0) {
+                            else if (i != 0)
                                 writer.append("         if ");
-                            }
 
                             ifGenerated = true;
 
                             int kindToPrint;
                             if (i != 0) {
-                                writer.println("((active" + j + " & 0x" + Long.toHexString(1L << k) + "L) != 0L)");
+                                writer.println("(active" + j + " & 0x" + Long.toHexString(1L << k) + ") != 0");
                             }
 
                             if ((data.getIntermediateKinds() != null) && (
@@ -1448,104 +1419,93 @@ class JavaLexerGenerator extends LexerGenerator {
 
                                 if (stateSetName != -1) {
                                     writer.println(
-                                            prefix + "return jjStartNfaWithStates" + data.getLexerStateSuffix() + "(" + i
-                                                    + ", "
-                                                    + kindToPrint + ", " + stateSetName + ");");
+                                            prefix + "return self.jjStartNfaWithStates" + data.getLexerStateSuffix() + "(" + i
+                                                    + ", " + kindToPrint + ", " + stateSetName + ");");
                                 }
                                 else {
-                                    writer.println(
-                                            prefix + "return jjStopAtPos" + "(" + i + ", " + kindToPrint + ");");
+                                    writer.println(prefix + "return self.jj_stop_at_pos" + "(" + i + ", " + kindToPrint + ");");
                                 }
+                                writer.println("      }");
                             }
                             else if (((data.global.initMatch(data.getStateIndex()) != 0)
                                     && (data.global.initMatch(data.getStateIndex()) != Integer.MAX_VALUE)) || (i
                                     != 0)) {
                                 writer.println("         {");
-                                writer.println(prefix + "jjmatchedKind = " + kindToPrint + ";");
-                                writer.println(prefix + "jjmatchedPos = " + i + ";");
+                                writer.println(prefix + "self.jjmatched_kind = " + kindToPrint + ";");
+                                writer.println(prefix + "self.jjmatched_pos = " + i + ";");
                                 writer.println("         }");
                             }
                             else {
-                                writer.println(prefix + "jjmatchedKind = " + kindToPrint + ";");
+                                writer.println(prefix + "self.jjmatched_kind = " + kindToPrint + ";");
                             }
                         }
                     }
                 }
 
                 if (info.hasValidKindCnt()) {
-                    atLeastOne = false;
+                    var atLeastOne = false;
 
                     if (i == 0) {
-                        writer.append("         return ");
-
-                        writer.append("jjMoveStringLiteralDfa" + (i + 1) + data.getLexerStateSuffix() + "(");
+                        writer.append("         return self.jj_move_string_literal_dfa" + (i + 1) + data.getLexerStateSuffix() + "(");
                         for (j = 0; j < (maxLongsReqd - 1); j++) {
                             if ((i + 1) <= data.getMaxLenForActive(j)) {
-                                if (atLeastOne) {
+                                if (atLeastOne)
                                     writer.append(", ");
-                                }
-                                else {
+                                else
                                     atLeastOne = true;
-                                }
 
-                                writer.append("0x" + Long.toHexString(info.validKinds[j]) + "L");
+                                writer.append("0x" + Long.toHexString(info.validKinds[j]));
                             }
                         }
 
                         if ((i + 1) <= data.getMaxLenForActive(j)) {
-                            if (atLeastOne) {
+                            if (atLeastOne)
                                 writer.append(", ");
-                            }
 
-                            writer.append("0x" + Long.toHexString(info.validKinds[j]) + "L");
+                            writer.append("0x" + Long.toHexString(info.validKinds[j]));
                         }
                         writer.println(");");
+                        writer.println("      }");
                     }
                     else {
-                        writer.append("         return ");
-
-                        writer.append("jjMoveStringLiteralDfa" + (i + 1) + data.getLexerStateSuffix() + "(");
+                        writer.append("         return self.jj_move_string_literal_dfa" + (i + 1) + data.getLexerStateSuffix() + "(");
 
                         for (j = 0; j < (maxLongsReqd - 1); j++) {
                             if ((i + 1) <= (data.getMaxLenForActive(j) + 1)) {
-                                if (atLeastOne) {
+                                if (atLeastOne)
                                     writer.append(", ");
-                                }
-                                else {
+                                else
                                     atLeastOne = true;
-                                }
 
-                                if (info.validKinds[j] != 0L) {
-                                    writer.append("active" + j + ", 0x" + Long.toHexString(info.validKinds[j]) + "L");
-                                }
-                                else {
-                                    writer.append("active" + j + ", 0L");
-                                }
+                                if (info.validKinds[j] != 0L)
+                                    writer.append("active" + j + ", 0x" + Long.toHexString(info.validKinds[j]));
+                                else
+                                    writer.append("active" + j + ", 0");
                             }
                         }
 
                         if ((i + 1) <= (data.getMaxLenForActive(j) + 1)) {
-                            if (atLeastOne) {
+                            if (atLeastOne)
                                 writer.append(", ");
-                            }
-                            if (info.validKinds[j] != 0L) {
-                                writer.append("active" + j + ", 0x" + Long.toHexString(info.validKinds[j]) + "L");
-                            }
-                            else {
-                                writer.append("active" + j + ", 0L");
-                            }
+
+                            if (info.validKinds[j] != 0L)
+                                writer.append("active" + j + ", 0x" + Long.toHexString(info.validKinds[j]));
+                            else
+                                writer.append("active" + j + ", 0");
                         }
 
                         writer.println(");");
+                        writer.println("      }");
                     }
                 }
-                else // A very special case.
+                else {// A very special case.
                     if ((i == 0) && data.isMixedState()) {
 
                         if (data.generatedStates() != 0) {
                             writer.println(
-                                    "         return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(
-                                            data) + ", 0);");
+                                "         return self.jj_move_nfa" + data.getLexerStateSuffix() + "("
+                                    + InitStateName(
+                                    data) + ", 0);");
                         }
                         else {
                             writer.println("         return 1;");
@@ -1553,12 +1513,13 @@ class JavaLexerGenerator extends LexerGenerator {
                     }
                     else if (i != 0) // No more str literals to look for
                     {
-                        writer.println("         break;");
                         startNfaNeeded = true;
                     }
+                    writer.println("      }");
+                }
             }
 
-            writer.println("      default :");
+            writer.println("      _ => {");
 
             if (data.global.options().getDebugTokenManager()) {
                 writer.println("      debugStream.println(\"   No string literal matches possible.\");");
@@ -1566,23 +1527,17 @@ class JavaLexerGenerator extends LexerGenerator {
 
             if (data.generatedStates() != 0) {
                 if (i == 0) {
-                    /*
-                     * This means no string literal is possible. Just move nfa with this guy and return.
-                     */
-                    writer
-                            .println(
-                                    "         return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(
+                    // This means no string literal is possible. Just move nfa with this guy and return.
+                    writer.println("         return self.jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(
                                             data) + ", 0);");
                 }
-                else {
-                    writer.println("         break;");
+                else
                     startNfaNeeded = true;
-                }
             }
             else {
                 writer.println("         return " + (i + 1) + ";");
             }
-
+            writer.println("      }");
             writer.println("   }");
 
             if ((i != 0) && startNfaNeeded) {
@@ -1593,33 +1548,26 @@ class JavaLexerGenerator extends LexerGenerator {
                      * matched string.
                      */
 
-                    writer.append("   return jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
+                    writer.append("   self.jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
                     for (k = 0; k < (maxLongsReqd - 1); k++) {
-                        if (i <= data.getMaxLenForActive(k)) {
+                        if (i <= data.getMaxLenForActive(k))
                             writer.append("active" + k + ", ");
-                        }
-                        else {
-                            writer.append("0L, ");
-                        }
+                        else
+                            writer.append("0, ");
                     }
-                    if (i <= data.getMaxLenForActive(k)) {
-                        writer.println("active" + k + ");");
-                    }
-                    else {
-                        writer.println("0L);");
-                    }
+                    if (i <= data.getMaxLenForActive(k))
+                        writer.println("active" + k + ")");
+                    else
+                        writer.println("0)");
                 }
-                else if (data.generatedStates() != 0) {
-                    writer.println(
-                            "   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "
-                                    + i + ");");
-                }
-                else {
-                    writer.println("   return " + (i + 1) + ";");
-                }
+                else if (data.generatedStates() != 0)
+                    writer.println("   self.jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "  + i + ")");
+                else
+                    writer.println("   return " + (i + 1));
             }
 
             writer.println("}");
+            writer.new_line();
         }
 
         if (!data.isMixedState() && (data.generatedStates() != 0) && data.getCreateStartNfa()) {
@@ -1629,139 +1577,136 @@ class JavaLexerGenerator extends LexerGenerator {
 
     @Override
     protected final void dumpMoveNfa(SourceWriter writer, NfaStateData data) {
-        writer.println(
-                "private int " + "jjMoveNfa" + data.getLexerStateSuffix() + "(int startState, int curPos)");
-        writer.println("{");
+        writer.println("fn jj_move_nfa" + data.getLexerStateSuffix() + "(&mut self, start_state: usize, cur_pos: usize) -> usize {");
         if (data.generatedStates() == 0) {
-            writer.println("   return curPos;");
+            writer.println("   return cur_pos;");
             writer.println("}");
             return;
         }
 
         if (data.isMixedState()) {
-            writer.println("   int strKind = jjmatchedKind;");
-            writer.println("   int strPos = jjmatchedPos;");
-            writer.println("   int seenUpto;");
-            writer.println("   input_stream.backup(seenUpto = curPos + 1);");
-            writer.println("   try { curChar = input_stream.readChar(); }");
-            writer.println("   catch(java.io.IOException e) { throw new Error(\"Internal Error\"); }");
-            writer.println("   curPos = 0;");
+            writer.println("""
+   let str_kind = self.jjmatched_kind;
+   let str_pos = self.jjmatched_pos;
+   let seen_upto: usize = cur_pos + 1;
+   self.input_stream.backup(seen_upto);
+   let result = self.input_stream.read_char();
+   if result.is_err() {
+      panic!("Internal Error");
+   }
+   self.cur_char = u32::from(result.unwrap());
+   let mut cur_pos: usize = 0;
+""");
         }
 
-        writer.println("   int startsAt = 0;");
-        writer.println("   jjnewStateCnt = " + data.generatedStates() + ";");
-        writer.println("   int i = 1;");
-        writer.println("   jjstateSet[0] = startState;");
+        writer.println("   let mut starts_at: usize = 0;");
+        writer.println("   self.jjnew_state_cnt = " + data.generatedStates() + ";");
+        writer.println("   let mut i: usize = 1;");
+        writer.println("   self.jjstate_set[0] = start_state;");
 
         if (data.global.options().getDebugTokenManager()) {
             writer.println("      debugStream.println(\"   Starting NFA to match one of : \" + "
-                    + "jjKindsForStateVector(curLexState, jjstateSet, 0, 1));");
-        }
-
-        if (data.global.options().getDebugTokenManager()) {
+                    + "jjKindsForStateVector(self.cur_lex_state, jjstate_set, 0, 1));");
             writer.println("      debugStream.println("
-                    + (data.global.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                    + "\"Current character : \" + TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \") "
-                    + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
+                    + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
+                    + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
+                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
         }
 
-        writer.println("   int kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-        writer.println("   for (;;)");
-        writer.println("   {");
-        writer.println("      if (++jjround == 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")");
-        writer.println("         ReInitRounds();");
-        writer.println("      if (curChar < 64)");
-        writer.println("      {");
+        writer.println("   let mut kind: u32 = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+        writer.println("   loop {");
+        writer.println("      self.jjround += 1;");
+        writer.println("      if self.jjround == 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {");
+        writer.println("         self.re_init_rounds();");
+        writer.println("      }");
 
+        writer.println("      if self.cur_char < 64 {");
         DumpAsciiMoves(writer, data, 0);
-
         writer.println("      }");
 
-        writer.println("      else if (curChar < 128)");
-
-        writer.println("      {");
-
+        writer.println("      else if self.cur_char < 128 {");
         DumpAsciiMoves(writer, data, 1);
-
         writer.println("      }");
 
-        writer.println("      else");
-        writer.println("      {");
-
+        writer.println("      else {");
         DumpCharAndRangeMoves(writer, data);
-
         writer.println("      }");
-
-        writer.println("      if (kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")");
-        writer.println("      {");
-        writer.println("         jjmatchedKind = kind;");
-        writer.println("         jjmatchedPos = curPos;");
+        writer.println("      if kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {");
+        writer.println("         self.jjmatched_kind = kind;");
+        writer.println("         self.jjmatched_pos = cur_pos;");
         writer.println("         kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
         writer.println("      }");
-        writer.println("      ++curPos;");
+        writer.println("      cur_pos += 1;");
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "      if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(
-                            Integer.MAX_VALUE) + ")");
+            writer.println("      if self.jjmatched_kind != 0 && self.jjmatched_kind != 0x"
+                + Integer.toHexString(Integer.MAX_VALUE) + " {");
             writer.println("         debugStream.println("
-                    + "\"   Currently matched the first \" + (jjmatchedPos + 1) + \" characters as"
-                    + " a \" + tokenImage[jjmatchedKind] + \" token.\");");
+                    + "\"   Currently matched the first \" + (jjmatched_pos + 1) + \" characters as"
+                    + " a \" + tokenImage[jjmatched_kind] + \" token.\");");
+            writer.println("      }");
         }
 
-        writer.println(
-                "      if ((i = jjnewStateCnt) == (startsAt = " + data.generatedStates()
-                        + " - (jjnewStateCnt = startsAt)))");
-        if (data.isMixedState()) {
+        writer.println("      i = self.jjnew_state_cnt;");
+        writer.println("      self.jjnew_state_cnt = starts_at;");
+        writer.println("      starts_at = " + data.generatedStates() + " - self.jjnew_state_cnt;");
+        writer.println("      if i == starts_at {");
+        if (data.isMixedState())
             writer.println("         break;");
-        }
-        else {
-            writer.println("         return curPos;");
-        }
+        else
+            writer.println("         return cur_pos;");
+        writer.println("      }");
 
         if (data.global.options().getDebugTokenManager()) {
             writer.println("      debugStream.println(\"   Possible kinds of longer matches : \" + "
-                    + "jjKindsForStateVector(curLexState, jjstateSet, startsAt, i));");
+                    + "jjKindsForStateVector(self.cur_lex_state, jjstate_set, starts_at, i));");
         }
 
-        writer.println("      try { curChar = input_stream.readChar(); }");
-        if (data.isMixedState()) {
-            writer.println("      catch(java.io.IOException e) { break; }");
-        }
-        else {
-            writer.println("      catch(java.io.IOException e) { return curPos; }");
-        }
+        writer.println("      let result = self.input_stream.read_char();");
+        writer.println("      if result.is_err() {");
+        if (data.isMixedState())
+            writer.println("         break;");
+        else
+            writer.println("         return cur_pos;");
+        writer.println("      }");
+        writer.println("      self.cur_char = u32::from(result.unwrap());");
 
         if (data.global.options().getDebugTokenManager()) {
             writer.println("      debugStream.println("
-                    + (data.global.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                    + "\"Current character : \" + TokenException.addEscapes(String.valueOf(curChar)) + \" (\" + (int)curChar + \") "
-                    + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
+                    + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
+                    + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
+                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
         }
-
         writer.println("   }");
 
         if (data.isMixedState()) {
-            writer.println("   if (jjmatchedPos > strPos)");
-            writer.println("      return curPos;");
-            writer.println("");
-            writer.println("   int toRet = Math.max(curPos, seenUpto);");
-            writer.println("");
-            writer.println("   if (curPos < toRet)");
-            writer.println("      for (i = toRet - Math.min(curPos, seenUpto); i-- > 0; )");
-            writer.println("         try { curChar = input_stream.readChar(); }");
-            writer.println("         catch(java.io.IOException e) { "
-                    + "throw new Error(\"Internal Error : Please send a bug report.\"); }");
-            writer.println("");
-            writer.println("   if (jjmatchedPos < strPos)");
-            writer.println("   {");
-            writer.println("      jjmatchedKind = strKind;");
-            writer.println("      jjmatchedPos = strPos;");
-            writer.println("   }");
-            writer.println("   else if (jjmatchedPos == strPos && jjmatchedKind > strKind)");
-            writer.println("      jjmatchedKind = strKind;");
-            writer.println("");
-            writer.println("   return toRet;");
+            writer.println("""
+   if self.jjmatched_pos > str_pos {
+      return cur_pos;
+   }
+
+   let to_ret = cmp::max(cur_pos, seen_upto);
+   if cur_pos < to_ret {
+      let mut i = cmp::min(cur_pos, seen_upto);
+      while i > 0 {
+         let result = self.input_stream.read_char();
+         if result.is_err() {
+            panic!("Internal Error : Please send a bug report.");
+         }
+         self.cur_char = u32::from(result.unwrap());
+         i -= 1;
+      }
+   }
+   if self.jjmatched_pos < str_pos {
+      self.jjmatched_kind = str_kind;
+      self.jjmatched_pos = str_pos;
+   }
+   else if self.jjmatched_pos == str_pos && self.jjmatched_kind > str_kind {
+      self.jjmatched_kind = str_kind;
+   }
+
+   to_ret
+""");
         }
         writer.println("}");
     }

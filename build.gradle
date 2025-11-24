@@ -38,6 +38,9 @@ allprojects {
 dependencies {
     implementation gradleApi()
 
+    // https://mvnrepository.com/artifact/org.jspecify/jspecify
+    implementation("org.jspecify:jspecify:1.0.0")
+
     // Use JUnit test framework//
     // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.1")

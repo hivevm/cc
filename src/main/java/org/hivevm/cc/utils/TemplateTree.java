@@ -12,7 +12,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.jetbrains.annotations.NotNull;
+import org.hivevm.core.Environment;
+import org.jspecify.annotations.NonNull;
 
 class TemplateTree implements Iterable<TemplateTree> {
 
@@ -89,7 +90,7 @@ class TemplateTree implements Iterable<TemplateTree> {
     }
 
     @Override
-    public final @NotNull Iterator<TemplateTree> iterator() {
+    public final @NonNull Iterator<TemplateTree> iterator() {
         return this.nodes.iterator();
     }
 
@@ -103,7 +104,7 @@ class TemplateTree implements Iterable<TemplateTree> {
     /**
      * Use the template.
      */
-    private void render(PrintWriter writer, Environment env, Object item, String global,
+    private void render(PrintWriter writer, Environment environment, Object item, String global,
                         String local) {
         for (TemplateTree child : this) {
             switch (child.kind()) {
@@ -116,9 +117,9 @@ class TemplateTree implements Iterable<TemplateTree> {
                     }
 
                     String option = child.option();
-                    Object instance = env.get(param);
+                    Object instance = environment.get(param);
                     if (option != null) {
-                        boolean validate = validate(param, env);
+                        boolean validate = validate(param, environment);
                         writer.print(validate ? instance : option);
                     }
                     else if (instance instanceof Supplier) {
@@ -139,20 +140,20 @@ class TemplateTree implements Iterable<TemplateTree> {
                     Iterator<TemplateTree> iterator = child.iterator();
                     while (!hasFound && iterator.hasNext()) {
                         TemplateTree next = iterator.next();
-                        if ((next.text() == null) || validate(next.text(), env)) {
+                        if ((next.text() == null) || validate(next.text(), environment)) {
                             hasFound = true;
-                            next.render(writer, env, item, global, local);
+                            next.render(writer, environment, item, global, local);
                         }
                     }
                     break;
 
                 case FOREACH:
-                    instance = env.get(child.option());
+                    instance = environment.get(child.option());
                     Iterable<?> iterable = (instance instanceof Integer)
                             ? IntStream.range(0, (Integer) instance).boxed().collect(Collectors.toList())
                             : (Iterable<?>) instance;
 
-                    Environment e = new TemplateEnvironment(env);
+                    var e = new TemplateEnvironment(environment);
                     for (Object value : iterable) {
                         e.set(child.text(), value);
                         child.render(writer, e, value, child.option(), child.text());
@@ -175,7 +176,7 @@ class TemplateTree implements Iterable<TemplateTree> {
             return !validate(condition.substring(1), environment);
         }
 
-        if (!environment.isSet(condition)) {
+        if (!environment.has(condition)) {
             return false;
         }
 

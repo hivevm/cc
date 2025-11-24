@@ -1,0 +1,12 @@
+#[derive(Debug)]
+pub enum TreeConstants {
+@foreach(node : NODES)
+  {{node.label}},
+@end
+}
+
+pub const JJT_NODE_NAME : [&str; {{NODES}}] = [
+@foreach(node : NODES)
+  "{{node.title}}",
+@end
+];

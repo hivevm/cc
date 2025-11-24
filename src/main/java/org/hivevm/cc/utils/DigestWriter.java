@@ -41,13 +41,6 @@ public class DigestWriter extends PrintWriter {
     }
 
     /**
-     * Get options as wrapper.
-     */
-    public final DigestOptions options() {
-        return this.options;
-    }
-
-    /**
      * Closes the stream and releases any system resources associated with it. Closing a previously
      * closed stream has no effect.
      */

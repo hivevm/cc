@@ -7,16 +7,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
 import java.security.DigestOutputStream;
-
 import org.hivevm.cc.HiveCCVersion;
 import org.hivevm.cc.parser.JavaCCErrors;
 import org.hivevm.cc.parser.Options;
 import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.DigestWriter;
-import org.hivevm.cc.utils.Environment;
 import org.hivevm.cc.utils.Template;
 
 /**
@@ -62,23 +58,21 @@ public interface TemplateProvider {
     /**
      * Generates a {@link File} from a template.
      */
-    static void generate(File file, String filename, String templateName, Environment opt) {
+    static void generate(File file, String filename, String templateName, org.hivevm.core.Environment opt) {
         DigestOptions options = new DigestOptions(opt);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         DigestOutputStream digest = new DigestOutputStream(bytes, DigestWriter.DIGEST);
         String banner = "HiveVM CC v." + HiveCCVersion.VERSION.toString("0.0");
 
-        try (PrintWriter writer =
-                     new DigestWriter(new FileOutputStream(file), digest, bytes, banner, options)) {
-            String path = String.format("/templates/%s.template", templateName);
-            InputStream stream = Template.class.getResourceAsStream(path);
+        var path = String.format("/templates/%s.template", templateName);
+        try (var writer = new DigestWriter(new FileOutputStream(file), digest, bytes, banner, options)) {
+            var stream = Template.class.getResourceAsStream(path);
             if (stream == null) {
                 throw new IOException("Invalid template name: " + path);
             }
-            Template template = new Template(stream.readAllBytes(), options);
+            var template = new Template(stream.readAllBytes(), options);
             template.render(writer);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             System.err.println("Failed to create file: " + filename + " " + e);
             JavaCCErrors.semantic_error("Could not open file: " + filename + " for writing.");
             throw new Error();

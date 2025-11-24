@@ -5,6 +5,7 @@ package org.hivevm.cc.utils;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.hivevm.core.Environment;
 
 /**
  * The {@link TemplateEnvironment} class.
@@ -25,8 +26,8 @@ class TemplateEnvironment implements Environment {
      * Return <code>true</code> if the environment variable is set.
      */
     @Override
-    public final boolean isSet(String name) {
-        return this.options.containsKey(name) || this.environment.isSet(name);
+    public final boolean has(String name) {
+        return this.options.containsKey(name) || this.environment.has(name);
     }
 
     /**
@@ -40,7 +41,6 @@ class TemplateEnvironment implements Environment {
     /**
      * Set an environment variable by name
      */
-    @Override
     public void set(String name, Object value) {
         this.options.put(name, value);
     }

@@ -3,7 +3,6 @@
 
 package org.hivevm.cc.generator.cpp;
 
-import java.io.PrintWriter;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -28,6 +27,7 @@ import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.semantic.Semanticize;
 import org.hivevm.cc.utils.Encoding;
 import org.hivevm.cc.utils.TemplateOptions;
+import org.hivevm.core.SourceWriter;
 
 /**
  * Implements the {@link ParserGenerator} for the C++ language.
@@ -36,7 +36,7 @@ class CppParserGenerator extends ParserGenerator {
 
     @Override
     public void generate(ParserData data) {
-        TemplateOptions options = new TemplateOptions(data.options());
+        var options = new TemplateOptions(data.options());
         options.set(ParserGenerator.JJPARSER_USE_AST, data.isGenerated());
         options.set(ParserGenerator.LOOKAHEAD_NEEDED, data.isLookAheadNeeded());
         options.set(ParserGenerator.JJ2_INDEX, data.jj2Index());
@@ -76,18 +76,18 @@ class CppParserGenerator extends ParserGenerator {
      * The characters '\u0003' and '\u0004' are used to delineate portions of text where '\n's should
      * not be followed by an indentation.
      */
-    private void generatePhase1(BNFProduction p, String code, String parserName, PrintWriter writer,
+    private void generatePhase1(BNFProduction p, String code, String parserName, SourceWriter writer,
                                 ParserData data) {
         Token t = p.getReturnTypeTokens().getFirst();
 
         boolean voidReturn = (t.kind == JavaCCParserConstants.VOID);
         String error_ret = genHeaderMethod(p, t, parserName, writer);
 
-        writer.print(" {");
+        writer.append(" {");
 
         if ((data.stopOnFirstError() && (error_ret != null)) || ((data.getDepthLimit() > 0)
                 && !voidReturn)) {
-            writer.print(error_ret);
+            writer.append(error_ret);
         }
         else {
             error_ret = null;
@@ -97,7 +97,7 @@ class CppParserGenerator extends ParserGenerator {
 
         int indentamt = 4;
         if (data.getDebugParser()) {
-            writer.println();
+            writer.new_line();
             writer.println("    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
                     + Encoding.escapeUnicode(p.getLhs(), Language.CPP) + "\"); });");
             writer.println("    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
@@ -110,9 +110,9 @@ class CppParserGenerator extends ParserGenerator {
             genTokenSetup((p.getDeclarationTokens().getFirst()));
             for (Token token : p.getDeclarationTokens()) {
                 t = token;
-                writer.print(getStringToPrint(t));
+                writer.append(getStringToPrint(t));
             }
-            writer.print(getTrailingComments(t));
+            writer.append(getTrailingComments(t));
         }
 
         char ch = ' ';
@@ -127,13 +127,13 @@ class CppParserGenerator extends ParserGenerator {
             }
             else if ((ch == '\n') || (ch == '\r')) {
                 if (indentOn) {
-                    writer.println();
+                    writer.new_line();
                     for (int i0 = 0; i0 < indentamt; i0++) {
-                        writer.print(" ");
+                        writer.append(" ");
                     }
                 }
                 else {
-                    writer.println();
+                    writer.new_line();
                 }
             }
             else if (ch == '\u0001') {
@@ -149,18 +149,18 @@ class CppParserGenerator extends ParserGenerator {
                 indentOn = true;
             }
             else {
-                writer.print(ch);
+                writer.append("" + ch);
             }
         }
-        writer.println();
+        writer.new_line();
 
         if (!p.getDeclarationEndTokens().isEmpty()) {
             genTokenSetup((p.getDeclarationEndTokens().getFirst()));
             for (Token token : p.getDeclarationEndTokens()) {
                 t = token;
-                writer.print(getStringToPrint(t));
+                writer.append(getStringToPrint(t));
             }
-            writer.println();
+            writer.new_line();
         }
 
         if (data.getDebugParser()) {
@@ -173,7 +173,7 @@ class CppParserGenerator extends ParserGenerator {
             writer.println("\n#undef __ERROR_RET__");
         }
         writer.println("}");
-        writer.println();
+        writer.new_line();
     }
 
     private String generatePhase1Expansion(ParserData data, Expansion e) {
@@ -525,7 +525,7 @@ class CppParserGenerator extends ParserGenerator {
         return retval;
     }
 
-    private String genHeaderMethod(BNFProduction p, Token t, String parserName, PrintWriter writer) {
+    private String genHeaderMethod(BNFProduction p, Token t, String parserName, SourceWriter writer) {
         StringBuilder sig = new StringBuilder();
         String ret, params;
 
@@ -571,7 +571,7 @@ class CppParserGenerator extends ParserGenerator {
         params = sig.toString();
 
         // For now, just ignore comments
-        writer.print("\n" + ret + " " + parserName + "::" + p.getLhs() + params);
+        writer.append("\n" + ret + " " + parserName + "::" + p.getLhs() + params);
 
         // Generate a default value for error return.
         String default_return;
@@ -591,7 +591,7 @@ class CppParserGenerator extends ParserGenerator {
                 "#define __ERROR_RET__ ERROR_RET_" + method_name + "\n";
     }
 
-    private void genStackCheck(boolean voidReturn, PrintWriter writer, ParserData data) {
+    private void genStackCheck(boolean voidReturn, SourceWriter writer, ParserData data) {
         if (data.getDepthLimit() > 0) {
             if (!voidReturn) {
                 writer.println("if(jj_depth_error){ return __ERROR_RET__; }");
@@ -615,7 +615,7 @@ class CppParserGenerator extends ParserGenerator {
         }
     }
 
-    private void generatePhase2(Expansion e, PrintWriter writer, ParserData data) {
+    private void generatePhase2(Expansion e, SourceWriter writer, ParserData data) {
         writer.println("  inline bool jj_2" + e.internalName() + "(int xla) {");
         writer.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
 
@@ -631,10 +631,10 @@ class CppParserGenerator extends ParserGenerator {
                     "    { jj_save(" + (Integer.parseInt(e.internalName().substring(1)) - 1) + ", xla); }");
         }
         writer.println("  }");
-        writer.println();
+        writer.new_line();
     }
 
-    private void generatePhase3Routine(ParserData data, Expansion e, int count, PrintWriter writer) {
+    private void generatePhase3Routine(ParserData data, Expansion e, int count, SourceWriter writer) {
         if (e.internalName().startsWith("jj_scan_token")) {
             return;
         }
@@ -664,12 +664,12 @@ class CppParserGenerator extends ParserGenerator {
             writer.println("#undef __ERROR_RET__");
         }
         writer.println("  }");
-        writer.println();
+        writer.new_line();
     }
 
     private boolean buildPhase3RoutineRecursive(ParserData data, Expansion jj3_expansion,
                                                 boolean xsp_declared,
-                                                Expansion e, int count, PrintWriter writer) {
+                                                Expansion e, int count, SourceWriter writer) {
         if (e.internalName().startsWith("jj_scan_token")) {
             return xsp_declared;
         }
@@ -713,19 +713,19 @@ class CppParserGenerator extends ParserGenerator {
                     Lookahead la = (Lookahead) (nested_seq.getUnits().getFirst());
                     if (!la.getActionTokens().isEmpty()) {
                         writer.println("    jj_lookingAhead = true;");
-                        writer.print("    jj_semLA = ");
+                        writer.append("    jj_semLA = ");
                         genTokenSetup((la.getActionTokens().getFirst()));
                         for (Token token : la.getActionTokens()) {
                             t = token;
-                            writer.print(getStringToPrint(t));
+                            writer.append(getStringToPrint(t));
                         }
-                        writer.print(getTrailingComments(t));
+                        writer.append(getTrailingComments(t));
                         writer.println(";");
                         writer.println("    jj_lookingAhead = false;");
                     }
-                    writer.print("    if (");
+                    writer.append("    if (");
                     if (!la.getActionTokens().isEmpty()) {
-                        writer.print("!jj_semLA || ");
+                        writer.append("!jj_semLA || ");
                     }
                     if (i != (e_nrw.getChoices().size() - 1)) {
                         writer.println(genjj_3Call(nested_seq) + ") {");

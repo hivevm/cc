@@ -1,9 +1,8 @@
 // Copyright 2024 HiveVM.ORG. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-package org.hivevm.cc.utils;
+package org.hivevm.core;
 
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,10 +10,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
 import org.hivevm.cc.parser.Options;
-import org.hivevm.core.Environment;
-import org.hivevm.core.SourceWriter;
 import org.jspecify.annotations.NonNull;
 
 
@@ -23,7 +19,7 @@ import org.jspecify.annotations.NonNull;
  * within an environment. It allows the definition and retrieval of options, and supports setting
  * options with direct values, suppliers, writers, or custom mappers.
  */
-public class TemplateOptions implements Options {
+public class TemplateLambda implements Options {
 
     private final Environment         environment;
     private final Map<String, Object> options = new HashMap<>();
@@ -31,7 +27,7 @@ public class TemplateOptions implements Options {
     /**
      * Constructs a new instance of the {@code TemplateOptions} class with the specified environment.
      */
-    public TemplateOptions(Environment environment) {
+    public TemplateLambda(Environment environment) {
         this.environment = environment;
     }
 
@@ -68,11 +64,9 @@ public class TemplateOptions implements Options {
 
     public final void setWriter(String name, Consumer<SourceWriter> value) {
         set(name, () -> {
-            StringWriter builder = new StringWriter();
-            try (var writer = new SourcePrinter(builder)) {
-                value.accept(writer);
-            }
-            return builder.toString();
+            var writer = new SourcePrinter();
+            value.accept(writer);
+            return writer.toString();
         });
     }
 
@@ -102,35 +96,39 @@ public class TemplateOptions implements Options {
         }
 
         public final Mapper<T> set(String key, Function<T, Object> function) {
-            TemplateOptions.this.options.put(String.join(".", this.name, key), function);
+            TemplateLambda.this.options.put(String.join(".", this.name, key), function);
             return this;
         }
 
         public final Mapper<T> set(String key, BiConsumer<T, SourceWriter> consumer) {
             set(key, i -> {
-                StringWriter builder = new StringWriter();
-                try (var writer = new SourcePrinter(builder)) {
-                    consumer.accept(i, writer);
-                }
-                return builder.toString();
+                var writer = new SourcePrinter();
+                consumer.accept(i, writer);
+                return writer.toString();
             });
             return this;
         }
     }
 
-    public static SourceWriter createWriter(StringWriter writer) {
-        return new SourcePrinter(writer);
-    }
+    private static class SourcePrinter implements SourceWriter {
 
-    private static class SourcePrinter extends PrintWriter implements SourceWriter {
-        public SourcePrinter(StringWriter writer) {
-            super(writer);
+        private final StringWriter builder;
+
+        public SourcePrinter() {
+            this.builder = new StringWriter();
         }
 
         @Override
-        public SourceWriter append(@NonNull String text) {
-            write(text);
+        public SourceWriter append(@NonNull String s) {
+            builder.append(s);
             return this;
+        }
+        public void println(@NonNull String s) {
+            builder.append(s).append("\n");
+        }
+
+        public String toString() {
+            return builder.toString();
         }
     }
 }
