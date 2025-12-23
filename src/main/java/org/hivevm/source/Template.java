@@ -1,16 +1,13 @@
 // Copyright 2024 HiveVM.ORG. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-package org.hivevm.core;
+package org.hivevm.source;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Stack;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.hivevm.core.Environment;
 
 /**
  * Represents a template rendering system that interprets a set of commands embedded within input
@@ -33,13 +30,9 @@ public class Template {
         VAR
     }
 
-    private static final String FUNCTIONS = Stream.of(Function.values())
-        .map(l -> l.name().toLowerCase())
-        .collect(Collectors.joining("|"));
+    private static final Pattern STATEMENT = Pattern.compile(
+        "(\\h*)//@(\\w+)(?:\\(([^)]+)\\))?\\v?|__([\\w]+)__", Pattern.MULTILINE);
 
-    // PATTERN = VERTICAL? HORIZONTAL* @FUNCTION (PARAMETER)? HORIZONTAL* VERTICAL?
-    private static final Pattern PATTERN = Pattern.compile("(\\v?)(\\h*)(?:@(" +
-        FUNCTIONS + ")(?:\\(([^)]+)\\))?|\\{\\{([^}]+)}})(\\h*)(\\v?)", Pattern.MULTILINE);
 
     private final String text;
 
@@ -63,76 +56,58 @@ public class Template {
      * structure to construct and render the output.
      */
     public final void render(String title, OutputStream outputStream, Environment environment) {
-        var renderer = TemplateRenderer.create();
-        var nodes = new Stack<TemplateRenderer>();
-        nodes.push(renderer);
+        var builder = new RendererBuilder();
 
         var offset = 0;
-        var matcher = Template.PATTERN.matcher(text);
+        var matcher = Template.STATEMENT.matcher(text);
         while (matcher.find()) {
             if (matcher.start() > offset) {
-                nodes.peek().addText(text.substring(offset, matcher.start()));
+                builder.addText(text.substring(offset, matcher.start()));
             }
             offset = matcher.end();
 
-            var space_begin = matcher.group(2);
-            var space_end = matcher.group(6);
-
-            var is_inline = matcher.group(1).isEmpty() || matcher.group(7).isEmpty();
-            if (!is_inline) {
-                nodes.peek().addText("\n");
-            }
-
-            var isFunc = matcher.group(5) == null;
-            var func = isFunc ? matcher.group(3).toUpperCase() : "VAR";
-            var param = isFunc ? matcher.group(4) : matcher.group(5);
+            var isFunc = matcher.group(4) == null;
+            var func = isFunc ? matcher.group(2).toUpperCase() : "VAR";
+            var param = matcher.group(isFunc ? 3 : 4);
             switch (Function.valueOf(func)) {
                 case IF:
-                    var node = nodes.peek().addMatch();
-                    nodes.push(node);
-                    node = node.addCase(param);
-                    nodes.push(node);
+                    builder.addMatch(param);
                     break;
 
                 case ELIF:
                 case ELSE:
-                    nodes.pop();
-                    node = nodes.peek().addCase(param);
-                    nodes.push(node);
+                    builder.addCase(param);
                     break;
 
                 case FI:
-                    nodes.pop();
+                    builder.pop();
                 case END:
-                    nodes.pop();
+                    builder.pop();
                     break;
 
                 case FOREACH:
-                    var args = Arrays.stream(param.split(":"))
-                        .map(String::trim)
-                        .toList();
-                    node = nodes.peek().addForeach(args.get(0), args.get(1));
-                    nodes.push(node);
+                    builder.addForeach(param);
                     break;
 
                 case VAR:
-                    nodes.peek().addText(space_begin);
-                    nodes.peek().addVar(param);
-                    nodes.peek().addText(space_end);
-                    if (!matcher.group(7).isEmpty()) {
-                        nodes.peek().addText("\n");
-                    }
+                    builder.addVar(param);
 
                 default:
                     break;
             }
         }
+
         if (offset < text.length()) {
-            renderer.addText(text.substring(offset));
+            builder.addText(text.substring(offset));
         }
 
+        var renderer = builder.build();
         try (var writer = TemplateWriter.create(title, outputStream, environment)) {
             renderer.render(writer, writer);
         }
+    }
+
+    public static Context newContext(Environment environment) {
+        return new TemplateContext(environment);
     }
 }

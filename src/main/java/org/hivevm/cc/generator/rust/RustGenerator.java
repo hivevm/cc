@@ -36,8 +36,8 @@ public class RustGenerator extends GeneratorProvider {
     @Override
     protected final FileGenerator newFileGenerator() {
         return context -> {
-            RustTemplate.TOKEN.render(context.options());
-            RustTemplate.CHAR_STREAM.render(context.options());
+            RustSources.TOKEN.render(context.options());
+            RustSources.CHAR_STREAM.render(context.options());
         };
     }
 

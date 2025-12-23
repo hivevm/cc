@@ -25,8 +25,9 @@ import org.hivevm.cc.model.ZeroOrOne;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.semantic.Semanticize;
 import org.hivevm.cc.utils.Encoding;
-import org.hivevm.core.SourceWriter;
-import org.hivevm.core.TemplateLambda;
+import org.hivevm.source.SourceProvider;
+import org.hivevm.source.SourceWriter;
+import org.hivevm.source.Template;
 
 /**
  * Implements the {@link ParserGenerator} for the JAVA language.
@@ -35,31 +36,32 @@ class RustParserGenerator extends ParserGenerator {
 
     @Override
     public void generate(ParserData data) {
-        var options = new TemplateLambda(data.options());
+        var options = Template.newContext(data.options());
         options.set(ParserGenerator.JJPARSER_USE_AST, data.isGenerated());
         options.set(ParserGenerator.LOOKAHEAD_NEEDED, data.isLookAheadNeeded());
         options.set(ParserGenerator.JJ2_INDEX, data.jj2Index());
         options.set(ParserGenerator.MASK_INDEX, data.maskIndex());
         options.set(ParserGenerator.TOKEN_COUNT, data.getTokenCount());
 
-        options.add(ParserGenerator.JJ2_OFFSET, data.jj2Index()).set("offset", i -> (i + 1));
-        options.add(ParserGenerator.TOKEN_MASKS, ((data.getTokenCount() - 1) / 32) + 1).set("mask",
-                i -> data.maskVals().stream().map(v -> "0x" + Integer.toHexString(v[i]))
+        options.add(ParserGenerator.JJ2_OFFSET, data.jj2Index())
+            .set("JJ2_OFFSET_INDEX", i -> i)
+            .set("JJ2_OFFSET_VALUE", i -> "_" + (i + 1));
+        options.add(ParserGenerator.TOKEN_MASKS, ((data.getTokenCount() - 1) / 32) + 1)
+            .set("TOKEN_MASK_INDEX", i -> "_" + i)
+            .set("TOKEN_MASK", i -> data.maskVals().stream().map(v -> "0x" + Integer.toHexString(v[i]))
                         .collect(Collectors.joining(", ")));
         options.add(ParserGenerator.TOKEN_MASKS + "_LA1", ((data.getTokenCount() - 1) / 32) + 1)
-                .set("la1",
-                        i -> (i == 0) ? "" : (32 * i) + " + ");
+            .set("LA1_SUFFIX",i -> "_" + i)
+            .set("LA1_MASK",i -> (i == 0) ? "" : (32 * i) + " + ");
 
-        options.add("NORMALPRODUCTIONS", data.getProductions()).set(
-            "phase",
-            (n, p) -> generatePhase1((BNFProduction) n, generatePhase1Expansion(data, n.getExpansion()), p, data));
-        options.add("LOOKAHEADS", data.getLoakaheads()).set(
-            "phase",
-            (e, p) -> generatePhase2(e.getLaExpansion(), p, data));
-        options.add("EXPANSIONS", data.getExpansions()).set(
-            "phase", (e, p) -> generatePhase3Routine(data, e, data.getCount(e), p));
+        options.add("NORMALPRODUCTIONS", data.getProductions())
+            .set("NORMALPRODUCTION", (n, p) -> generatePhase1((BNFProduction) n, generatePhase1Expansion(data, n.getExpansion()), p, data));
+        options.add("LOOKAHEADS", data.getLoakaheads())
+            .set("LOOKAHEAD", (e, p) -> generatePhase2(e.getLaExpansion(), p, data));
+        options.add("EXPANSIONS", data.getExpansions())
+            .set("EXPANSION", (e, p) -> generatePhase3Routine(data, e, data.getCount(e), p));
 
-        RustTemplate.PARSER.render(options);
+        RustSources.PARSER.render(options);
     }
 
     @Override
@@ -79,23 +81,23 @@ class RustParserGenerator extends ParserGenerator {
 
         genHeaderMethod(p, t, writer);
 
-        writer.println(" {");
+        writer.append(" {").new_line();
         writer.append("  let mut try_catch: Result<(), std::io::Error> = Ok(());");
 
         if (data.getDepthLimit() > 0) {
-            writer.println("if(++jj_depth > " + data.getDepthLimit() + ") {");
-            writer.println("  jj_consume_token(u32::MAX);");
-            writer.println("  throw new ParseException();");
-            writer.println("}");
-            writer.println("try {");
+            writer.append("if(++jj_depth > " + data.getDepthLimit() + ") {").new_line();
+            writer.append("  jj_consume_token(u32::MAX);").new_line();
+            writer.append("  throw new ParseException();").new_line();
+            writer.append("}").new_line();
+            writer.append("try {").new_line();
         }
 
         int indentamt = 4;
         if (data.getDebugParser()) {
             writer.new_line();
-            writer.println(
-                    "    trace_call(\"" + Encoding.escapeUnicode(normal_production_as_snake_case(p), Language.JAVA) + "\");");
-            writer.println("    try {");
+            writer.append(
+                    "    trace_call(\"" + Encoding.escapeUnicode(normal_production_as_snake_case(p), Language.JAVA) + "\");").new_line();
+            writer.append("    try {").new_line();
             indentamt = 6;
         }
 
@@ -157,18 +159,18 @@ class RustParserGenerator extends ParserGenerator {
         }
 
         if (data.getDebugParser()) {
-            writer.println("    } finally {");
-            writer.println(
-                    "      trace_return(\"" + Encoding.escapeUnicode(normal_production_as_snake_case(p), Language.JAVA) + "\");");
-            writer.println("    }");
+            writer.append("    } finally {").new_line();
+            writer.append("      trace_return(\"" + Encoding.escapeUnicode(normal_production_as_snake_case(p), Language.JAVA) + "\");")
+                .new_line();
+            writer.append("    }").new_line();
         }
         if (data.getDepthLimit() > 0) {
-            writer.println(" } finally {");
-            writer.println("   --jj_depth;");
-            writer.println(" }");
+            writer.append(" } finally {").new_line();
+            writer.append("   --jj_depth;").new_line();
+            writer.append(" }").new_line();
         }
-        writer.println("  try_catch");
-        writer.println("}");
+        writer.append("  try_catch").new_line();
+        writer.append("}").new_line();
         writer.new_line();
     }
 
@@ -543,23 +545,23 @@ class RustParserGenerator extends ParserGenerator {
     }
 
     private void generatePhase2(Expansion e, SourceWriter writer, ParserData data) {
-        writer.println("  fn jj_2" + internal_name_as_snake_case(e) + "(&mut self, xla: u32) -> bool {");
-        writer.println("    self.jj_la = xla;");
-        writer.println("    self.jj_lastpos = Some(self.token.clone());");
-        writer.println("    self.jj_scanpos = Some(self.token.clone());");
+        writer.append("  fn jj_2" + internal_name_as_snake_case(e) + "(&mut self, xla: u32) -> bool {").new_line();
+        writer.append("    self.jj_la = xla;").new_line();
+        writer.append("    self.jj_lastpos = Some(self.token.clone());").new_line();
+        writer.append("    self.jj_scanpos = Some(self.token.clone());").new_line();
 
         String ret_suffix = (data.getDepthLimit() > 0) ? " && !self.jj_depth_error" : "";
-        writer.println("//    try {");
-        writer.println("      let result = !self.jj_3" + internal_name_as_snake_case(e) + "()" + ret_suffix + ";");
-        writer.println("//    } catch (LookaheadSuccess ls) {");
-        writer.println("//      true");
+        writer.append("//    try {").new_line();
+        writer.append("      let result = !self.jj_3" + internal_name_as_snake_case(e) + "()" + ret_suffix + ";").new_line();
+        writer.append("//    } catch (LookaheadSuccess ls) {").new_line();
+        writer.append("//      true").new_line();
         if (data.getErrorReporting()) {
-            writer.println("//    } finally {");
-            writer.println("      self.jj_save(" + (Integer.parseInt(internal_name_as_snake_case(e).substring(1)) - 1) + ", xla);");
+            writer.append("//    } finally {").new_line();
+            writer.append("      self.jj_save(" + (Integer.parseInt(internal_name_as_snake_case(e).substring(1)) - 1) + ", xla);").new_line();
         }
-        writer.println("//    }");
-        writer.println("  result");
-        writer.println("  }");
+        writer.append("//    }").new_line();
+        writer.append("  result").new_line();
+        writer.append("  }").new_line();
         writer.new_line();
     }
 
@@ -567,14 +569,14 @@ class RustParserGenerator extends ParserGenerator {
         if (e.internalName().startsWith("jj_scan_token"))
             return;
 
-        writer.println("  fn jj_3" + internal_name_as_snake_case(e) + "(&mut self) -> bool {");
+        writer.append("  fn jj_3" + internal_name_as_snake_case(e) + "(&mut self) -> bool {").new_line();
 
         if (data.getDepthLimit() > 0) {
-            writer.println("if ++jj_depth > " + data.getDepthLimit() + " {");
-            writer.println("  jj_consume_token(u32::MAX);");
-            writer.println("  throw new ParseException();");
-            writer.println("}");
-            writer.println("try {");
+            writer.append("if ++jj_depth > " + data.getDepthLimit() + " {").new_line();
+            writer.append("  jj_consume_token(u32::MAX);").new_line();
+            writer.append("  throw new ParseException();").new_line();
+            writer.append("}").new_line();
+            writer.append("try {").new_line();
         }
 
         boolean xsp_declared = false;
@@ -584,20 +586,21 @@ class RustParserGenerator extends ParserGenerator {
             if (data.getErrorReporting()) {
                 writer.append("if (!jj_rescan) ");
             }
-            writer.println("trace_call(\"" + Encoding.escapeUnicode(normal_production_as_snake_case(np), Language.JAVA)
-                    + "(LOOKING AHEAD...)\");");
+            writer.append("trace_call(\"" + Encoding.escapeUnicode(normal_production_as_snake_case(np), Language.JAVA)
+                    + "(LOOKING AHEAD...)\");")
+                .new_line();
             jj3_expansion = e;
         }
 
         buildPhase3RoutineRecursive(data, jj3_expansion, xsp_declared, e, count, writer);
 
-        writer.println("    " + genReturn(jj3_expansion, false, data));
+        writer.append("    " + genReturn(jj3_expansion, false, data)).new_line();
         if (data.getDepthLimit() > 0) {
-            writer.println(" } finally {");
-            writer.println("   self.jj_depth -= 1;");
-            writer.println(" }");
+            writer.append(" } finally {").new_line();
+            writer.append("   self.jj_depth -= 1;").new_line();
+            writer.append(" }").new_line();
         }
-        writer.println("  }");
+        writer.append("  }").new_line();
         writer.new_line();
     }
 
@@ -620,9 +623,9 @@ class RustParserGenerator extends ParserGenerator {
                 }
                 else
                     writer.append(e_nrw.getLabel());
-                writer.println(") {");
-                writer.println("      return " + genReturn(jj3_expansion, true, data) + ";");
-                writer.println("    }");
+                writer.append(") {").new_line();
+                writer.append("      return " + genReturn(jj3_expansion, true, data) + ";").new_line();
+                writer.append("    }").new_line();
             }
             case NonTerminal e_nrw -> {
                 // All expansions of non-terminals have the "name" fields set. So
@@ -631,18 +634,18 @@ class RustParserGenerator extends ParserGenerator {
                 // variables are the same.
                 NormalProduction ntprod = data.getProduction(e_nrw.getName());
                 Expansion ntexp = ntprod.getExpansion();
-                writer.println("    if self." + genjj_3Call(ntexp) + "{");
-                writer.println("      return " + genReturn(jj3_expansion, true, data) + ";");
-                writer.println("    }");
+                writer.append("    if self." + genjj_3Call(ntexp) + "{").new_line();
+                writer.append("      return " + genReturn(jj3_expansion, true, data) + ";").new_line();
+                writer.append("    }").new_line();
             }
             case Choice e_nrw -> {
                 Sequence nested_seq;
                 if (e_nrw.getChoices().size() != 1) {
                     if (!xsp_declared) {
                         xsp_declared = true;
-                        writer.println("    let mut xsp: Rc<RefCell<Token>>;");
+                        writer.append("    let mut xsp: Rc<RefCell<Token>>;").new_line();
                     }
-                    writer.println("    xsp = self.jj_scanpos.as_mut().unwrap().clone();");
+                    writer.append("    xsp = self.jj_scanpos.as_mut().unwrap().clone();").new_line();
                 }
 
                 Token t = null;
@@ -650,7 +653,7 @@ class RustParserGenerator extends ParserGenerator {
                     nested_seq = (Sequence) (e_nrw.getChoices().get(i));
                     Lookahead la = (Lookahead) (nested_seq.getUnits().getFirst());
                     if (!la.getActionTokens().isEmpty()) {
-                        writer.println("    self.jj_lookingAhead = true;");
+                        writer.append("    self.jj_lookingAhead = true;").new_line();
                         writer.append("    self.jj_semLA = ");
                         genTokenSetup((la.getActionTokens().getFirst()));
                         for (Token token : la.getActionTokens()) {
@@ -658,25 +661,25 @@ class RustParserGenerator extends ParserGenerator {
                             writer.append(getStringToPrint(t));
                         }
                         writer.append(getTrailingComments(t));
-                        writer.println(";");
-                        writer.println("    self.jj_lookingAhead = false;");
+                        writer.append(";").new_line();
+                        writer.append("    self.jj_lookingAhead = false;").new_line();
                     }
                     writer.append("    if ");
                     if (!la.getActionTokens().isEmpty()) {
                         writer.append("!self.jj_semLA || ");
                     }
                     if (i != (e_nrw.getChoices().size() - 1)) {
-                        writer.println("self." + genjj_3Call(nested_seq) + " {");
-                        writer.println("      self.jj_scanpos = Some(xsp.clone());");
+                        writer.append("self." + genjj_3Call(nested_seq) + " {").new_line();
+                        writer.append("      self.jj_scanpos = Some(xsp.clone());").new_line();
                     }
                     else {
-                        writer.println("self." + genjj_3Call(nested_seq) + " {");
-                        writer.println("      return " + genReturn(jj3_expansion, true, data) +";");
-                        writer.println("    }");
+                        writer.append("self." + genjj_3Call(nested_seq) + " {").new_line();
+                        writer.append("      return " + genReturn(jj3_expansion, true, data) +";").new_line();
+                        writer.append("    }").new_line();
                     }
                 }
                 for (int i = 1; i < e_nrw.getChoices().size(); i++) {
-                    writer.println("    }");
+                    writer.append("    }").new_line();
                 }
             }
             case Sequence e_nrw -> {
@@ -696,35 +699,36 @@ class RustParserGenerator extends ParserGenerator {
             case OneOrMore e_nrw -> {
                 if (!xsp_declared) {
                     xsp_declared = true;
-                    writer.println("    let mut xsp: Rc<RefCell<Token>>;");
+                    writer.append("    let mut xsp: Rc<RefCell<Token>>;").new_line();
                 }
                 Expansion nested_e = e_nrw.getExpansion();
-                writer.println(
-                        "    if self." + genjj_3Call(nested_e) + " { return " + genReturn(jj3_expansion, true, data) + ";}");
-                writer.println("    loop {");
-                writer.println("      xsp = self.jj_scanpos.as_mut().unwrap().clone();");
-                writer.println("      if self." + genjj_3Call(nested_e) + " { self.jj_scanpos = Some(xsp.clone()); break; }");
-                writer.println("    }");
+                writer.append(String.format("""
+                        if self.%s { return %s;}
+                        loop {
+                          xsp = self.jj_scanpos.as_mut().unwrap().clone();
+                          if self.%s { self.jj_scanpos = Some(xsp.clone()); break; }
+                        }
+                    """, genjj_3Call(nested_e), genReturn(jj3_expansion, true, data), genjj_3Call(nested_e)));
             }
             case ZeroOrMore e_nrw -> {
                 if (!xsp_declared) {
                     xsp_declared = true;
-                    writer.println("    let mut xsp: Rc<RefCell<Token>>;");
+                    writer.append("    let mut xsp: Rc<RefCell<Token>>;").new_line();
                 }
                 Expansion nested_e = e_nrw.getExpansion();
-                writer.println("    loop {");
-                writer.println("      xsp = self.jj_scanpos.as_mut().unwrap().clone();");
-                writer.println("      if self." + genjj_3Call(nested_e) + " { self.jj_scanpos = Some(xsp.clone()); break; }");
-                writer.println("    }");
+                writer.append("    loop {").new_line();
+                writer.append("      xsp = self.jj_scanpos.as_mut().unwrap().clone();").new_line();
+                writer.append("      if self." + genjj_3Call(nested_e) + " { self.jj_scanpos = Some(xsp.clone()); break; }").new_line();
+                writer.append("    }").new_line();
             }
             case ZeroOrOne e_nrw -> {
                 if (!xsp_declared) {
                     xsp_declared = true;
-                    writer.println("    let mut xsp: Rc<RefCell<Token>>;");
+                    writer.append("    let mut xsp: Rc<RefCell<Token>>;").new_line();
                 }
                 Expansion nested_e = e_nrw.getExpansion();
-                writer.println("    xsp = self.jj_scanpos.as_mut().unwrap().clone();");
-                writer.println("    if self." + genjj_3Call(nested_e) + " { self.jj_scanpos = Some(xsp.clone()); }");
+                writer.append("    xsp = self.jj_scanpos.as_mut().unwrap().clone();").new_line();
+                writer.append("    if self." + genjj_3Call(nested_e) + " { self.jj_scanpos = Some(xsp.clone()); }").new_line();
             }
             default -> {
             }

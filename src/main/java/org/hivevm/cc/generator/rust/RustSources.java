@@ -5,7 +5,7 @@ package org.hivevm.cc.generator.rust;
 
 import java.io.File;
 import org.hivevm.cc.parser.Options;
-import org.hivevm.core.TemplateProvider;
+import org.hivevm.source.SourceProvider;
 
 /**
  * Represents a collection of predefined templates for generating Rust code.
@@ -16,41 +16,40 @@ import org.hivevm.core.TemplateProvider;
  * for retrieving template resource paths, generating filenames, and creating
  * corresponding {@link File} objects based on user-defined options.
  */
-enum RustTemplate implements TemplateProvider {
+enum RustSources implements SourceProvider {
 
-    LEXER("Lexer"),
-    PARSER("Parser"),
+    NODE("node"),
+    TOKEN("token"),
+    CHAR_STREAM("charstream"),
 
-    CHAR_STREAM("CharStream"),
+    LEXER("lexer"),
+    PARSER("parser"),
 
-    NODE("Node"),
+    PARSER_CONSTANTS("parserconstants"),
+
+    TREE_STATE("treestate"),
+    TREE_CONSTANTS("treeconstants"),
+
     MULTI_NODE("MultiNode", "%s"),
-
-    PARSER_CONSTANTS("ParserConstants"),
-    TOKEN("Token"),
-
-    TREE_STATE("TreeState"),
-    TREE_CONSTANTS("TreeConstants"),
-
     VISITOR("Visitor", "%sVisitor"),
     DEFAULT_VISITOR("DefaultVisitor", "%sDefaultVisitor");
 
     private final String name;
     private final String path;
 
-    RustTemplate(String name) {
+    RustSources(String name) {
         this.name = name;
-        this.path = name;
+        this.path = name + ".rs";
     }
 
-    RustTemplate(String name, String path) {
+    RustSources(String path, String name) {
         this.name = name;
-        this.path = path;
+        this.path = path + ".rs";
     }
 
     @Override
-    public final String getName() {
-        return this.name;
+    public final String getPath() {
+        return this.path;
     }
 
     @Override
@@ -59,15 +58,9 @@ enum RustTemplate implements TemplateProvider {
     }
 
     @Override
-    public final String getTarget(String name) {
-        var filename = name == null ? this.name : String.format(this.path, name);
-        return String.format("%s.rs", filename).toLowerCase();
-    }
-
-    @Override
     public final File getTargetFile(String name, Options options) {
-        var filename = getTarget(name);
-        var target = new File(options.getOutputDirectory(), options.getParserName().toLowerCase());
-        return new File(target, filename);
+        var targetDir = new File(options.getOutputDirectory(), options.getParserName().toLowerCase());
+        var targetName = (name == null ? this.name : String.format(this.name, name)) + ".rs";
+        return new File(targetDir, targetName);
     }
 }

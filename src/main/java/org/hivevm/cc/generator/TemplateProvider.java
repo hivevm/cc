@@ -14,6 +14,7 @@ import org.hivevm.cc.parser.Options;
 import org.hivevm.cc.utils.DigestOptions;
 import org.hivevm.cc.utils.DigestWriter;
 import org.hivevm.cc.utils.Template;
+import org.hivevm.core.Environment;
 
 /**
  * The {@link TemplateProvider} class.
@@ -58,7 +59,7 @@ public interface TemplateProvider {
     /**
      * Generates a {@link File} from a template.
      */
-    static void generate(File file, String filename, String templateName, org.hivevm.core.Environment opt) {
+    static void generate(File file, String filename, String templateName, Environment opt) {
         DigestOptions options = new DigestOptions(opt);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         DigestOutputStream digest = new DigestOutputStream(bytes, DigestWriter.DIGEST);

@@ -22,8 +22,9 @@ import org.hivevm.cc.model.TokenProduction;
 import org.hivevm.cc.parser.JavaCCErrors;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.utils.Encoding;
-import org.hivevm.core.SourceWriter;
-import org.hivevm.core.TemplateLambda;
+import org.hivevm.source.SourceProvider;
+import org.hivevm.source.SourceWriter;
+import org.hivevm.source.Template;
 
 /**
  * Generate lexer.
@@ -36,27 +37,30 @@ class RustLexerGenerator extends LexerGeneratorRust {
             return;
         }
 
-        var options = new TemplateLambda(data.options());
+        var options = Template.newContext(data.options());
         options.add("LOHI_BYTES_LENGTH", data.getLohiByteSize() + 1);
         options.add(LexerGenerator.LOHI_BYTES, data.getLohiByte())
-            .set("bytes", i -> getLohiBytes(data, i));
-        options.add(LexerGenerator.STATES, data.getStateNames()).set("NfaAndDfa",
-                (n, w) -> dumpNfaAndDfa(data.getStateData(n), w));
+            .set("LOHI_BYTES_INDEX", i -> i)
+            .set("LOHI_BYTES_BYTES", i -> getLohiBytes(data, i));
+        options.add(LexerGenerator.STATES, data.getStateNames())
+            .set("STATE_NAME", s -> s)
+            .set("NfaAndDfa", (n, w) -> dumpNfaAndDfa(data.getStateData(n), w));
         options.add(LexerGenerator.NON_ASCII_TABLE, data.getNonAsciiTableForMethod())
-                .set("NON_ASCII_METHOD", s -> s.nonAsciiMethod)
+                .set("ASCII_METHOD", s -> "_" + s.nonAsciiMethod)
                 .set("ASCII_MOVE", (s, w) -> DumpNonAsciiMoveMethod(s, data, w));
 
-        options.set("LITERAL_IMAGES", RustLexerGenerator.getStrLiteralImageList(data));
+        options.add("LITERAL_IMAGES", RustLexerGenerator.getStrLiteralImageList(data))
+            .set("LITERAL_IMAGE_NAME", s -> s);
         options.set("LITERAL_IMAGES_LENGTH", RustLexerGenerator.getStrLiteralImageList(data).size());
         options.set("STATES_FOR_STATE", () -> getStatesForState(data));
         options.set("KIND_FOR_STATE", () -> getKindForState(data));
 
-        options.setWriter("DumpSkipActions", p -> DumpSkipActions(p, data));
-        options.setWriter("DumpMoreActions", p -> DumpMoreActions(p, data));
-        options.setWriter("DumpTokenActions", p -> DumpTokenActions(p, data));
-        options.setWriter("DumpStateSets", p -> DumpStateSets(p, data));
-        options.setWriter("DumpGetNextToken", p -> DumpGetNextToken(p, data));
-        options.setWriter("dumpStaticVarDeclarations", p -> DumpStaticVarDeclarations(p, data));
+        options.set("DumpSkipActions", p -> DumpSkipActions(p, data));
+        options.set("DumpMoreActions", p -> DumpMoreActions(p, data));
+        options.set("DumpTokenActions", p -> DumpTokenActions(p, data));
+        options.set("DumpStateSets", p -> DumpStateSets(p, data));
+        options.set("DumpGetNextToken", p -> DumpGetNextToken(p, data));
+        options.set("dumpStaticVarDeclarations", p -> DumpStaticVarDeclarations(p, data));
 
         options.set(LexerGenerator.DEFAULT_LEX_STATE, data.defaultLexState());
         options.set(LexerGenerator.MAX_LEX_STATES, data.maxLexStates());
@@ -80,7 +84,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
         options.set(LexerGenerator.UNARY_NEED, data.jjCheckNAddStatesUnaryNeeded());
         options.set(LexerGenerator.STATE_COUNT, data.getStateCount());
 
-        RustTemplate.LEXER.render(options);
+        RustSources.LEXER.render(options);
 
         generateConstants(data);
     }
@@ -91,43 +95,45 @@ class RustLexerGenerator extends LexerGeneratorRust {
 
     protected final void generateConstants(LexerData data) {
         var expressions = new ArrayList<RExpression>();
-        for (var  tp : data.getTokenProductions()) {
-            for (var  res : tp.getRespecs()) {
+        for (var tp : data.getTokenProductions()) {
+            for (var res : tp.getRespecs()) {
                 expressions.add(res.rexp);
             }
         }
 
-        var options = new TemplateLambda(data.options());
-        options.add("STATES", data.getStateCount()).set("name", data::getStateName);
-        options.add("TOKENS", data.getOrderedsTokens()).set("ordinal", RExpression::getOrdinal)
-            .set("label", RExpression::getLabel);
+        var options =   Template.newContext(data.options());
+        options.add("STATES", data.getStateCount())
+            .set("STATE_INDEX", i -> i)
+            .set("STATE_NAME", data::getStateName);
+        options.add("TOKENS", data.getOrderedsTokens())
+            .set("TOKEN_ORDINAL", RExpression::getOrdinal)
+            .set("TOKEN_LABEL", RExpression::getLabel);
         options.add("PRODUCTIONS_COUNT", expressions.size() + 1);
-        options.add("PRODUCTIONS", expressions).set("label", re -> {
-            StringBuilder buffer = new StringBuilder();
-
-            if (re instanceof RStringLiteral) {
-                buffer.append("\"\\\"")
+        options.add("PRODUCTIONS", expressions)
+            .set("PRODUCTION_LABEL", re -> {
+                var builder = new StringBuilder();
+                if (re instanceof RStringLiteral) {
+                    builder.append("\"\\\"")
                         .append(Encoding.escape(Encoding.escape(((RStringLiteral) re).getImage())))
                         .append("\\\"\"");
-            }
-            else if (!re.getLabel().equals("")) {
-                buffer.append("\"<").append(re.getLabel()).append(">\"");
-            }
-            else if (re.getTpContext().getKind() == TokenProduction.Kind.TOKEN) {
-                JavaCCErrors.warning(re,
-                        "Consider giving this non-string token a label for better error reporting.");
-            }
-            else {
-                buffer.append("\"<token of kind ").append(re.getOrdinal()).append(">\"");
-            }
+                }
+                else if (!re.getLabel().isEmpty()) {
+                    builder.append("\"<").append(re.getLabel()).append(">\"");
+                }
+                else if (re.getTpContext().getKind() == TokenProduction.Kind.TOKEN) {
+                    JavaCCErrors.warning(re, "Consider giving this non-string token a label for better error reporting.");
+                }
+                else {
+                    builder.append("\"<token of kind ").append(re.getOrdinal()).append(">\"");
+                }
 
-            if (expressions.indexOf(re) < (expressions.size() - 1)) {
-                buffer.append(",");
-            }
-            return buffer.toString();
+                if (expressions.indexOf(re) < (expressions.size() - 1)) {
+                    builder.append(",");
+                }
+                return builder.toString();
         });
 
-        RustTemplate.PARSER_CONSTANTS.render(options);
+        RustSources.PARSER_CONSTANTS.render(options);
     }
 
     @Override
@@ -152,7 +158,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     writer.append(data.getStateIndex(data.newLexState(i)) + ", ");
                 }
             }
-            writer.println("\n];");
+            writer.append("\n];").new_line();
         }
 
         if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
@@ -164,7 +170,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 }
                 writer.append(toHexString(data.toToken(i)) + ", ");
             }
-            writer.println("\n];");
+            writer.append("\n];").new_line();
         }
 
         if (data.hasSkip() || data.hasSpecial()) {
@@ -176,7 +182,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 }
                 writer.append(toHexString(data.toSkip(i)) + ", ");
             }
-            writer.println("\n];");
+            writer.append("\n];").new_line();
         }
 
         if (data.hasSpecial()) {
@@ -188,7 +194,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 }
                 writer.append(toHexString(data.toSpecial(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
 
         if (data.hasMore()) {
@@ -200,30 +206,30 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 }
                 writer.append(toHexString(data.toMore(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
     }
 
     private void DumpGetNextToken(SourceWriter writer, LexerData data) {
         if ((data.getNextStateForEof() != null) || (data.getActionForEof() != null)) {
-            writer.println("self.token_lexical_actions(matched_token);");
+            writer.append("self.token_lexical_actions(matched_token);").new_line();
         }
 
-        writer.println("return matched_token;");
-        writer.println("      }");
+        writer.append("return matched_token;").new_line();
+        writer.append("    }").new_line();
 
         if (data.hasMoreActions() || data.hasSkipActions() || data.hasTokenActions()) {
-            writer.println("   image = jjimage;");
-            writer.println("   image.setLength(0);");
-            writer.println("   jjimage_len = 0;");
+            writer.append("   image = jjimage;").new_line();
+            writer.append("   image.setLength(0);").new_line();
+            writer.append("   jjimage_len = 0;").new_line();
         }
 
-        writer.println("");
+        writer.new_line();
 
         String prefix = "";
         if (data.hasMore()) {
-            writer.println("   for (;;)");
-            writer.println("   {");
+            writer.append("   for (;;)").new_line();
+            writer.append("   {").new_line();
             prefix = "  ";
         }
 
@@ -231,7 +237,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
         String caseStr = "";
         // this also sets up the start state of the nfa
         if (data.maxLexStates() > 1) {
-            writer.println(prefix + "   match self.cur_lex_state {");
+            writer.append(prefix + "   match self.cur_lex_state {").new_line();
             endSwitch = prefix + "   }";
             caseStr = prefix + " => {";
             prefix += "    ";
@@ -240,111 +246,125 @@ class RustLexerGenerator extends LexerGeneratorRust {
         prefix += "   ";
         for (int i = 0; i < data.maxLexStates(); i++) {
             if (data.maxLexStates() > 1)
-                writer.println(i + caseStr);
+                writer.append(i + caseStr).new_line();
 
             if (data.singlesToSkip(i).HasTransitions()) {
                 // added the backup(0) to make JIT happy
-                writer.println("try { input_stream.backup(0);");
+                writer.append("try { input_stream.backup(0);").new_line();
                 if ((data.singlesToSkip(i).asciiMoves[0] != 0L) && (data.singlesToSkip(i).asciiMoves[1]
                         != 0L)) {
-                    writer.println(
+                    writer.append(
                             prefix + "   while ((cur_char < 64" + " && (0x" + Long.toHexString(
                                     data.singlesToSkip(i).asciiMoves[0])
                                     + "L & (1L << cur_char)) != 0L) || \n" + prefix + "          (cur_char >> 6) == 1"
                                     + " && (0x"
                                     + Long.toHexString(data.singlesToSkip(i).asciiMoves[1])
-                                    + "L & (1L << (cur_char & 0o77))) != 0L)");
+                                    + "L & (1L << (cur_char & 0o77))) != 0L)")
+                        .new_line();
                 }
                 else if (data.singlesToSkip(i).asciiMoves[1] == 0L) {
-                    writer.println(
+                    writer.append(
                             prefix + "   while (cur_char <= " + (int) LexerGenerator.MaxChar(
                                     data.singlesToSkip(i).asciiMoves[0])
                                     + " && (0x" + Long.toHexString(data.singlesToSkip(i).asciiMoves[0])
-                                    + "L & (1L << cur_char)) != 0L)");
+                                    + "L & (1L << cur_char)) != 0L)")
+                        .new_line();
                 }
                 else if (data.singlesToSkip(i).asciiMoves[0] == 0L) {
-                    writer.println(prefix + "   while (cur_char > 63 && cur_char <= "
+                    writer.append(prefix + "   while (cur_char > 63 && cur_char <= "
                             + (LexerGenerator.MaxChar(data.singlesToSkip(i).asciiMoves[1]) + 64) + " && (0x"
                             + Long.toHexString(data.singlesToSkip(i).asciiMoves[1])
-                            + "L & (1L << (cur_char & 0o77))) != 0L)");
+                            + "L & (1L << (cur_char & 0o77))) != 0L)")
+                        .new_line();
                 }
 
                 if (data.options().getDebugTokenManager()) {
-                    writer.println(prefix + "{");
-                    writer.println("      debugStream.println("
+                    writer.append(prefix + "{").new_line();
+                    writer.append("      debugStream.println("
                             + (data.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
-                            + "\"Skipping character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \")\");");
+                            + "\"Skipping character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \")\");")
+                        .new_line();
                 }
-                writer.println(prefix + "      cur_char = input_stream.begin_token();");
+                writer.append(prefix + "      cur_char = input_stream.begin_token();")
+                    .new_line();
 
                 if (data.options().getDebugTokenManager()) {
-                    writer.println(prefix + "}");
+                    writer.append(prefix + "}").new_line();
                 }
 
-                writer.println(prefix + "}");
-                writer.println(prefix + "catch (java.io.IOException e1) { break 'EOFLoop; }");
+                writer.append(prefix + "}").new_line();
+                writer.append(prefix + "catch (java.io.IOException e1) { break 'EOFLoop; }")
+                    .new_line();
             }
 
             if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
                 if (data.options().getDebugTokenManager()) {
-                    writer.println(
+                    writer.append(
                             "      debugStream.println(\"   Matched the empty string as \" + tokenImage["
-                                    + data.initMatch(i) + "] + \" token.\");");
+                                    + data.initMatch(i) + "] + \" token.\");")
+                        .new_line();
                 }
 
-                writer.println(prefix + "self.jjmatched_kind = " + data.initMatch(i) + ";");
-                writer.println(prefix + "self.jjmatched_pos = usize::MAX;");
-                writer.println(prefix + "cur_pos = 0;");
+                writer.append(prefix + "self.jjmatched_kind = " + data.initMatch(i) + ";").new_line();
+                writer.append(prefix + "self.jjmatched_pos = usize::MAX;").new_line();
+                writer.append(prefix + "cur_pos = 0;").new_line();
             }
             else {
-                writer.println(
-                        prefix + "self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-                writer.println(prefix + "self.jjmatched_pos = 0;");
+                writer.append(
+                        prefix + "self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";")
+                    .new_line();
+                writer.append(prefix + "self.jjmatched_pos = 0;")
+                    .new_line();
             }
 
             if (data.options().getDebugTokenManager()) {
-                writer.println("      debugStream.println("
+                writer.append("      debugStream.println("
                         + (data.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
                         + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
-                        + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
+                        + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());")
+                    .new_line();
             }
 
-            writer.println(prefix + "cur_pos = self.jj_move_string_literal_dfa0_" + i + "();");
+            writer.append(prefix + "cur_pos = self.jj_move_string_literal_dfa0_" + i + "();")
+                .new_line();
             if (data.canMatchAnyChar(i) != -1) {
                 if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
-                    writer.println(prefix + "if self.jjmatched_pos < 0 || self.jjmatched_pos == 0 && self.jjmatched_kind > "
-                            + data.canMatchAnyChar(i) + ") {");
+                    writer.append(prefix + "if self.jjmatched_pos < 0 || self.jjmatched_pos == 0 && self.jjmatched_kind > "
+                            + data.canMatchAnyChar(i) + ") {")
+                        .new_line();
                 }
                 else {
-                    writer.println(
-                            prefix + "if self.jjmatched_pos == 0 && self.jjmatched_kind > " + data.canMatchAnyChar(i) + " {");
+                    writer.append(
+                            prefix + "if self.jjmatched_pos == 0 && self.jjmatched_kind > " + data.canMatchAnyChar(i) + " {")
+                        .new_line();
                 }
 
                 if (data.options().getDebugTokenManager()) {
-                    writer.println(
+                    writer.append(
                             "           debugStream.println(\"   Current character matched as a \" + tokenImage["
-                                    + data.canMatchAnyChar(i) + "] + \" token.\");");
+                                    + data.canMatchAnyChar(i) + "] + \" token.\");")
+                        .new_line();
                 }
-                writer.println(prefix + "   self.jjmatched_kind = " + data.canMatchAnyChar(i) + ";");
+                writer.append(prefix + "   self.jjmatched_kind = " + data.canMatchAnyChar(i) + ";").new_line();
 
                 if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
-                    writer.println(prefix + "   self.jjmatched_pos = 0;");
+                    writer.append(prefix + "   self.jjmatched_pos = 0;").new_line();
                 }
 
-                writer.println(prefix + "}");
+                writer.append(prefix + "}").new_line();
             }
 
             if (data.maxLexStates() > 1) {
-                writer.println("}");
+                writer.append("}").new_line();
             }
         }
 
         if (data.maxLexStates() > 1) {
-            writer.println("   _ => {}");
-            writer.println(endSwitch);
+            writer.append("   _ => {}").new_line();
+            writer.append(endSwitch).new_line();
         }
         else if (data.maxLexStates() == 0) {
-            writer.println("       self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+            writer.append("       self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
         }
 
         if (data.maxLexStates() > 1) {
@@ -355,141 +375,145 @@ class RustLexerGenerator extends LexerGeneratorRust {
         }
 
         if (data.maxLexStates() > 0) {
-            writer.println(
-                    prefix + "   if self.jjmatched_kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {");
-            writer.println(prefix + "      if self.jjmatched_pos + 1 < cur_pos {");
+            writer.append(
+                    prefix + "   if self.jjmatched_kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {").new_line();
+            writer.append(prefix + "      if self.jjmatched_pos + 1 < cur_pos {").new_line();
 
             if (data.options().getDebugTokenManager()) {
-                writer.println(prefix + "         debugStream.println("
-                        + "\"   Putting back \" + (cur_pos - jjmatched_pos - 1) + \" characters into the input stream.\");");
+                writer.append(prefix + "         debugStream.println("
+                        + "\"   Putting back \" + (cur_pos - jjmatched_pos - 1) + \" characters into the input stream.\");")
+                    .new_line();
             }
 
-            writer.println(prefix + "         self.input_stream.backup(cur_pos - self.jjmatched_pos - 1);");
-            writer.println(prefix + "      }");
+            writer.append(prefix + "         self.input_stream.backup(cur_pos - self.jjmatched_pos - 1);").new_line();
+            writer.append(prefix + "      }").new_line();
 
             if (data.options().getDebugTokenManager()) {
-                writer.println("    debugStream.println("
+                writer.append("    debugStream.println("
                         + "\"****** FOUND A \" + tokenImage[jjmatched_kind] + \" MATCH "
                         + "(\" + TokenException.addEscapes(new String(input_stream.GetSuffix(jjmatched_pos + 1))) + "
-                        + "\") ******\\n\");");
+                        + "\") ******\\n\");").new_line();
             }
 
             if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
-                writer
-                        .println(prefix + "      if (JJTO_TOKEN[(self.jjmatched_kind >> 6) as usize] & "
-                                + "(1 << (self.jjmatched_kind & 0o77))) != 0 {");
+                writer.append(prefix + "      if (JJTO_TOKEN[(self.jjmatched_kind >> 6) as usize] & "
+                                + "(1 << (self.jjmatched_kind & 0o77))) != 0 {").new_line();
             }
 
-            writer.println(prefix + "         matched_token = self.jj_fill_token();");
+            writer.append(prefix + "         matched_token = self.jj_fill_token();").new_line();
 
             if (data.hasSpecial()) {
-                writer.println(prefix + "         matched_token.specialToken = specialToken;");
+                writer.append(prefix + "         matched_token.specialToken = specialToken;").new_line();
             }
 
             if (data.hasTokenActions()) {
-                writer.println(prefix + "         self.token_lexical_actions(matched_token);");
+                writer.append(prefix + "         self.token_lexical_actions(matched_token);").new_line();
             }
 
             if (data.maxLexStates() > 1) {
-                writer.println("       if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 {");
-                writer.println(prefix + "       self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];");
-                writer.println("       }");
+                writer.append("       if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 {").new_line();
+                writer.append(prefix + "       self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];")
+                    .new_line();
+                writer.append("       }").new_line();
             }
 
-            writer.println(prefix + "         return matched_token;");
+            writer.append(prefix + "         return matched_token;").new_line();
 
             if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
-                writer.println(prefix + "      }");
+                writer.append(prefix + "      }").new_line();
 
                 if (data.hasSkip() || data.hasSpecial()) {
                     if (data.hasMore()) {
-                        writer.println(
+                        writer.append(
                                 prefix + "      else if (self.JJTO_SKIP[self.jjmatched_kind >> 6] & "
-                                        + "(1 << (jjmatched_kind & 0o77))) != 0");
+                                        + "(1 << (jjmatched_kind & 0o77))) != 0")
+                            .new_line();
                     }
                     else {
-                        writer.println(prefix + "      else");
+                        writer.append(prefix + "      else").new_line();
                     }
 
-                    writer.println(prefix + "      {");
+                    writer.append(prefix + "      {").new_line();
 
                     if (data.hasSpecial()) {
-                        writer.println(
+                        writer.append(
                                 prefix + "         if (self.jjtoSpecial[self.jjmatched_kind >> 6] & "
-                                        + "(1 << (self.jjmatched_kind & 0o77))) != 0 {");
+                                        + "(1 << (self.jjmatched_kind & 0o77))) != 0 {")
+                            .new_line();
 
-                        writer.println(prefix + "            matched_token = self.jj_fill_token();");
-                        writer.println(
-                                prefix + "         }");
+                        writer.append(prefix + "            matched_token = self.jj_fill_token();").new_line();
+                        writer.append(prefix + "         }").new_line();
 
-                        writer.println(prefix + "            if specialToken == null {");
-                        writer.println(prefix + "               specialToken = matched_token;");
-                        writer.println(prefix + "            } else {");
-                        writer.println(prefix + "               matched_token.specialToken = specialToken;");
-                        writer.println(prefix + "               specialToken = (specialToken.next = matched_token);");
-                        writer.println(prefix + "            }");
+                        writer.append(prefix + "            if specialToken == null {").new_line();
+                        writer.append(prefix + "               specialToken = matched_token;").new_line();
+                        writer.append(prefix + "            } else {").new_line();
+                        writer.append(prefix + "               matched_token.specialToken = specialToken;").new_line();
+                        writer.append(prefix + "               specialToken = (specialToken.next = matched_token);").new_line();
+                        writer.append(prefix + "            }").new_line();
 
                         if (data.hasSkipActions()) {
-                            writer.println(prefix + "            self.skip_lexical_actions(matched_token);");
+                            writer.append(prefix + "            self.skip_lexical_actions(matched_token);").new_line();
                         }
 
-                        writer.println(prefix + "         }");
+                        writer.append(prefix + "         }").new_line();
 
                         if (data.hasSkipActions()) {
-                            writer.println(prefix + "         } else {");
-                            writer.println(prefix + "            self.skip_lexical_actions(null);");
-                            writer.println(prefix + "         }");
+                            writer.append(prefix + "         } else {").new_line();
+                            writer.append(prefix + "            self.skip_lexical_actions(null);").new_line();
+                            writer.append(prefix + "         }").new_line();
                         }
                     }
                     else if (data.hasSkipActions()) {
-                        writer.println(prefix + "         self.skip_lexical_actions(null);");
+                        writer.append(prefix + "         self.skip_lexical_actions(null);").new_line();
                     }
 
                     if (data.maxLexStates() > 1) {
-                        writer.println("         if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 {");
-                        writer.println(prefix + "         self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];");
-                        writer.println("         }");
+                        writer.append("         if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 {").new_line();
+                        writer.append(prefix + "         self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];").new_line();
+                        writer.append("         }").new_line();
                     }
 
-                    writer.println(prefix + "         break 'EOFLoop;");
-                    writer.println(prefix + "      }");
+                    writer.append(prefix + "         break 'EOFLoop;").new_line();
+                    writer.append(prefix + "      }").new_line();
                 }
 
                 if (data.hasMore()) {
                     if (data.hasMoreActions()) {
-                        writer.println(prefix + "      self.more_lexical_actions();");
+                        writer.append(prefix + "      self.more_lexical_actions();").new_line();
                     }
                     else if (data.hasSkipActions() || data.hasTokenActions()) {
-                        writer.println(prefix + "      self.jjimage_len += self.jjmatched_pos + 1;");
+                        writer.append(prefix + "      self.jjimage_len += self.jjmatched_pos + 1;").new_line();
                     }
 
                     if (data.maxLexStates() > 1) {
-                        writer.println("      if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 7");
-                        writer.println(prefix + "      self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];");
-                        writer.println("      }");
+                        writer.append("      if JJNEW_LEX_STATE[self.jjmatched_kind as usize] != -1 7").new_line();
+                        writer.append(prefix + "      self.cur_lex_state = JJNEW_LEX_STATE[self.jjmatched_kind as usize];").new_line();
+                        writer.append("      }").new_line();
                     }
-                    writer.println(prefix + "      cur_pos = 0;");
-                    writer.println(
-                            prefix + "      self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+                    writer.append(prefix + "      cur_pos = 0;").new_line();
+                    writer.append(
+                            prefix + "      self.jjmatched_kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";")
+                        .new_line();
 
-                    writer.println(prefix + "      try {");
-                    writer.println(prefix + "         cur_char = input_stream.read_char();");
+                    writer.append(prefix + "      try {").new_line();
+                    writer.append(prefix + "         cur_char = input_stream.read_char();").new_line();
 
                     if (data.options().getDebugTokenManager()) {
-                        writer.println("   debugStream.println("
+                        writer.append("   debugStream.println("
                                 + (data.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
                                 + "\"Current character : \" + "
                                 + "TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
-                                + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
+                                + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());")
+                            .new_line();
                     }
-                    writer.println(prefix + "         continue;");
-                    writer.println(prefix + "      }");
-                    writer.println(prefix + "      catch (java.io.IOException e1) { }");
+                    writer.append(prefix + "         continue;").new_line();
+                    writer.append(prefix + "      }").new_line();
+                    writer.append(prefix + "      catch (java.io.IOException e1) { }").new_line();
                 }
             }
 
-            writer.println(prefix + "   }");
-            writer.println("""
+            writer.append(prefix + "   }").new_line();
+            writer.append("""
                  let mut error_line = self.input_stream.get_end_line();
                  let mut error_column = self.input_stream.get_end_column();
                  let mut error_after = String::new();
@@ -520,11 +544,12 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     }
                  }
                  panic!("Lexical error at line {}, column {} with error: {}", error_line, error_column, error_after);
-                """);
+                """)
+                .new_line();
         }
 
         if (data.hasMore()) {
-            writer.println(prefix + " }");
+            writer.append(prefix + " }").new_line();
         }
     }
 
@@ -541,26 +566,28 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     continue Outer;
                 }
 
-                writer.println("      case " + i + " :");
+                writer.append("      case " + i + " :").new_line();
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatched_pos == -1)");
-                    writer.println("         {");
-                    writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
-                    writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == input_stream.get_begin_line() &&");
-                    writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == input_stream.get_begin_column())");
-                    writer.println("               throw new TokenException("
+                    writer.append("         if (jjmatched_pos == -1)").new_line();
+                    writer.append("         {").new_line();
+                    writer.append("            if (jjbeenHere[" + data.getState(i) + "] &&").new_line();
+                    writer.append("                jjemptyLineNo[" + data.getState(i)
+                            + "] == input_stream.get_begin_line() &&").new_line();
+                    writer.append("                jjemptyColNo[" + data.getState(i)
+                            + "] == input_stream.get_begin_column())").new_line();
+                    writer.append("               throw new TokenException("
                             + "(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
                             + "at line \" + input_stream.get_begin_line() + \", "
-                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);");
-                    writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();");
-                    writer.println("            jjemptyColNo[" + data.getState(i)
-                            + "] = input_stream.get_begin_column();");
-                    writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
-                    writer.println("         }");
+                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);")
+                        .new_line();
+                    writer.append(
+                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();")
+                        .new_line();
+                    writer.append("            jjemptyColNo[" + data.getState(i)
+                            + "] = input_stream.get_begin_column();").new_line();
+                    writer.append("            jjbeenHere[" + data.getState(i) + "] = true;").new_line();
+                    writer.append("         }").new_line();
                 }
 
                 if (((act = data.actions(i)) == null) || act.getActionTokens().isEmpty()) {
@@ -569,12 +596,13 @@ class RustLexerGenerator extends LexerGeneratorRust {
 
                 writer.append("         image.append");
                 if (data.getImage(i) != null) {
-                    writer.println("(JJSTR_LITERAL_IMAGES[" + i + "]);");
-                    writer.println("        length_of_match = JJSTR_LITERAL_IMAGES[" + i + "].length();");
+                    writer.append("(JJSTR_LITERAL_IMAGES[" + i + "]);").new_line();
+                    writer.append("        length_of_match = JJSTR_LITERAL_IMAGES[" + i + "].length();").new_line();
                 }
                 else {
-                    writer.println(
-                            "(input_stream.GetSuffix(jjimage_len + (length_of_match = jjmatched_pos + 1)));");
+                    writer.append(
+                            "(input_stream.GetSuffix(jjimage_len + (length_of_match = jjmatched_pos + 1)));")
+                        .new_line();
                 }
 
                 genTokenSetup(act.getActionTokens().getFirst());
@@ -583,12 +611,12 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 for (Token element : act.getActionTokens()) {
                     genToken(writer, element);
                 }
-                writer.println("");
+                writer.new_line();
 
                 break;
             }
 
-            writer.println("         break;");
+            writer.append("         break;").new_line();
         }
     }
 
@@ -605,26 +633,28 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     continue Outer;
                 }
 
-                writer.println("      case " + i + " :");
+                writer.append("      case " + i + " :").new_line();
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatched_pos == -1)");
-                    writer.println("         {");
-                    writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
-                    writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == input_stream.get_begin_line() &&");
-                    writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == input_stream.get_begin_column())");
-                    writer.println("               throw new TokenException("
+                    writer.append("         if (jjmatched_pos == -1)").new_line();
+                    writer.append("         {").new_line();
+                    writer.append("            if (jjbeenHere[" + data.getState(i) + "] &&").new_line();
+                    writer.append("                jjemptyLineNo[" + data.getState(i)
+                            + "] == input_stream.get_begin_line() &&").new_line();
+                    writer.append("                jjemptyColNo[" + data.getState(i)
+                            + "] == input_stream.get_begin_column())").new_line();
+                    writer.append("               throw new TokenException("
                             + "(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
                             + "at line \" + input_stream.get_begin_line() + \", "
-                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);");
-                    writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();");
-                    writer.println("            jjemptyColNo[" + data.getState(i)
-                            + "] = input_stream.get_begin_column();");
-                    writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
-                    writer.println("         }");
+                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);")
+                        .new_line();
+                    writer.append(
+                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();")
+                        .new_line();
+                    writer.append("            jjemptyColNo[" + data.getState(i)
+                            + "] = input_stream.get_begin_column();").new_line();
+                    writer.append("            jjbeenHere[" + data.getState(i) + "] = true;").new_line();
+                    writer.append("         }").new_line();
                 }
 
                 if (((act = data.actions(i)) == null) || act.getActionTokens().isEmpty()) {
@@ -634,25 +664,25 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 writer.append("         image.append");
 
                 if (data.getImage(i) != null) {
-                    writer.println("(JJSTR_LITERAL_IMAGES[" + i + "]);");
+                    writer.append("(JJSTR_LITERAL_IMAGES[" + i + "]);").new_line();
                 }
                 else {
-                    writer.println("(input_stream.GetSuffix(jjimage_len));");
+                    writer.append("(input_stream.GetSuffix(jjimage_len));").new_line();
                 }
 
-                writer.println("         jjimage_len = 0;");
+                writer.append("         jjimage_len = 0;").new_line();
                 genTokenSetup(act.getActionTokens().getFirst());
                 resetColumn();
 
                 for (Token element : act.getActionTokens()) {
                     genToken(writer, element);
                 }
-                writer.println("");
+                writer.new_line();
 
                 break;
             }
 
-            writer.println("         break;");
+            writer.append("         break;").new_line();
         }
     }
 
@@ -672,26 +702,28 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     continue Outer;
                 }
 
-                writer.println("      case " + i + " :");
+                writer.append("      case " + i + " :").new_line();
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatched_pos == -1)");
-                    writer.println("         {");
-                    writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
-                    writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == input_stream.get_begin_line() &&");
-                    writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == input_stream.get_begin_column())");
-                    writer.println("               throw new TokenException("
+                    writer.append("         if (jjmatched_pos == -1)").new_line();
+                    writer.append("         {").new_line();
+                    writer.append("            if (jjbeenHere[" + data.getState(i) + "] &&").new_line();
+                    writer.append("                jjemptyLineNo[" + data.getState(i)
+                            + "] == input_stream.get_begin_line() &&").new_line();
+                    writer.append("                jjemptyColNo[" + data.getState(i)
+                            + "] == input_stream.get_begin_column())").new_line();
+                    writer.append("               throw new TokenException("
                             + "(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
                             + "at line \" + input_stream.get_begin_line() + \", "
-                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);");
-                    writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();");
-                    writer.println("            jjemptyColNo[" + data.getState(i)
-                            + "] = input_stream.get_begin_column();");
-                    writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
-                    writer.println("         }");
+                            + "column \" + input_stream.get_begin_column() + \".\"), TokenException.LOOP_DETECTED);")
+                        .new_line();
+                    writer.append(
+                            "            jjemptyLineNo[" + data.getState(i) + "] = input_stream.get_begin_line();")
+                        .new_line();
+                    writer.append("            jjemptyColNo[" + data.getState(i)
+                            + "] = input_stream.get_begin_column();").new_line();
+                    writer.append("            jjbeenHere[" + data.getState(i) + "] = true;").new_line();
+                    writer.append("         }").new_line();
                 }
 
                 if (((act = data.actions(i)) == null) || act.getActionTokens().isEmpty()) {
@@ -699,18 +731,17 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 }
 
                 if (i == 0) {
-                    writer.println("      image.setLength(0);"); // For EOF no image is there
+                    writer.append("      image.setLength(0);").new_line(); // For EOF no image is there
                 }
                 else {
                     writer.append("        image.append");
 
                     if (data.getImage(i) != null) {
-                        writer.println("(JJSTR_LITERAL_IMAGES[" + i + "]);");
-                        writer.println("        length_of_match = JJSTR_LITERAL_IMAGES[" + i + "].length();");
+                        writer.append("(JJSTR_LITERAL_IMAGES[" + i + "]);").new_line();
+                        writer.append("        length_of_match = JJSTR_LITERAL_IMAGES[" + i + "].length();").new_line();
                     }
                     else {
-                        writer.println(
-                                "(input_stream.GetSuffix(jjimage_len + (length_of_match = jjmatched_pos + 1)));");
+                        writer.append("(input_stream.GetSuffix(jjimage_len + (length_of_match = jjmatched_pos + 1)));").new_line();
                     }
                 }
 
@@ -720,12 +751,12 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 for (Token element : act.getActionTokens()) {
                     genToken(writer, element);
                 }
-                writer.println("");
+                writer.new_line();
 
                 break;
             }
 
-            writer.println("         break;");
+            writer.append("         break;").new_line();
         }
     }
 
@@ -754,7 +785,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
             writer.append("0");
         }
 
-        writer.println("\n];");
+        writer.append("\n];").new_line();
     }
 
     private static List<String> getStrLiteralImageList(LexerData data) {
@@ -820,78 +851,81 @@ class RustLexerGenerator extends LexerGeneratorRust {
     }
 
     private void DumpStartWithStates(SourceWriter writer, NfaStateData data) {
-        writer.println(
+        writer.append(
                 "private int " + "jjStartNfaWithStates" + data.getLexerStateSuffix()
-                        + "(int pos, int kind, int state)");
-        writer.println("{");
-        writer.println("   jjmatched_kind = kind;");
-        writer.println("   jjmatched_pos = pos;");
+                        + "(int pos, int kind, int state)").new_line();
+        writer.append("{").new_line();
+        writer.append("   jjmatched_kind = kind;").new_line();
+        writer.append("   jjmatched_pos = pos;").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "   debugStream.println(\"   No more string literal token matches are possible.\");");
-            writer.println("   debugStream.println(\"   Currently matched the first \" "
-                    + "+ (jjmatched_pos + 1) + \" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");");
+            writer.append(
+                    "   debugStream.println(\"   No more string literal token matches are possible.\");")
+                .new_line();
+            writer.append("   debugStream.println(\"   Currently matched the first \" "
+                    + "+ (jjmatched_pos + 1) + \" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");")
+                .new_line();
         }
 
-        writer.println("   try { cur_char = input_stream.read_char(); }");
-        writer.println("   catch(java.io.IOException e) { return pos + 1; }");
+        writer.append("   try { cur_char = input_stream.read_char(); }").new_line();
+        writer.append("   catch(java.io.IOException e) { return pos + 1; }").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println("   debugStream.println("
+            writer.append("   debugStream.println("
                     + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
                     + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
-                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
+                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());")
+                .new_line();
         }
-        writer.println("   return jj_move_nfa" + data.getLexerStateSuffix() + "(state, pos + 1);");
-        writer.println("}");
+        writer.append("   return jj_move_nfa" + data.getLexerStateSuffix() + "(state, pos + 1);").new_line();
+        writer.append("}").new_line();
     }
 
     @Override
     protected final void DumpHeadForCase(SourceWriter writer, int byteNum) {
         if (byteNum == 0)
-            writer.println("         let l: u64 = 1u64 << self.cur_char;");
+            writer.append("         let l: u64 = 1u64 << self.cur_char;").new_line();
         else if (byteNum == 1)
-            writer.println("         let l: u64 = 1u64 << (self.cur_char & 0o77);");
+            writer.append("         let l: u64 = 1u64 << (self.cur_char & 0o77);").new_line();
         else {
-            writer.println("         let hi_byte: u32 = self.cur_char >> 8;");
-            writer.println("         let l1: u64 = 1u64 << (hi_byte & 0o77);");
-            writer.println("         let l2: u64 = 1u64 << (self.cur_char & 0o77);");
-            writer.println("         let i1: usize = (hi_byte >> 6) as usize;");
-            writer.println("         let i2: usize = ((self.cur_char & 0xff) >> 6) as usize;");
+            writer.append("         let hi_byte: u32 = self.cur_char >> 8;").new_line();
+            writer.append("         let l1: u64 = 1u64 << (hi_byte & 0o77);").new_line();
+            writer.append("         let l2: u64 = 1u64 << (self.cur_char & 0o77);").new_line();
+            writer.append("         let i1: usize = (hi_byte >> 6) as usize;").new_line();
+            writer.append("         let i2: usize = ((self.cur_char & 0xff) >> 6) as usize;").new_line();
         }
 
-        // writer.println(" MatchLoop: do");
-        writer.println("         let mut while_cond = true;");
-        writer.println("         while while_cond {");
-        writer.println("            i -= 1;");
-        writer.println("            match self.jjstate_set[i] {");
+        // writer.append(" MatchLoop: do").new_line();
+        writer.append("         let mut while_cond = true;").new_line();
+        writer.append("         while while_cond {").new_line();
+        writer.append("            i -= 1;").new_line();
+        writer.append("            match self.jjstate_set[i] {").new_line();
     }
 
     private void DumpNonAsciiMoveMethod(NfaState state, LexerData data, SourceWriter writer) {
         for (int j = 0; j < state.loByteVec.size(); j += 2) {
-            writer.println("      " + state.loByteVec.get(j) + " => {");
+            writer.append("      " + state.loByteVec.get(j) + " => {").new_line();
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.loByteVec.get(j + 1))))
-                writer.println("         return (JJBIT_VEC" + state.loByteVec.get(j + 1) + "[i2] & l2) != 0;");
+                writer.append("         return (JJBIT_VEC" + state.loByteVec.get(j + 1) + "[i2] & l2) != 0;").new_line();
             else
-                writer.println("         return true;");
-            writer.println("      }");
+                writer.append("         return true;").new_line();
+            writer.append("      }").new_line();
         }
 
-        writer.println("      _ => {");
+        writer.append("      _ => {").new_line();
         for (int j = state.nonAsciiMoveIndices.length; j > 0; j -= 2) {
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 2])))
-                writer.println("         if (JJBIT_VEC" + state.nonAsciiMoveIndices[j - 2] + "[i1] & l1) != 0 {");
+                writer.append("         if (JJBIT_VEC" + state.nonAsciiMoveIndices[j - 2] + "[i1] & l1) != 0 {").new_line();
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 1]))) {
-                writer.println("            if (JJBIT_VEC" + state.nonAsciiMoveIndices[j - 1] + "[i2] & l2) == 0 {");
-                writer.println("               return false;");
-                writer.println("            } else {");
+                writer.append("            if (JJBIT_VEC" + state.nonAsciiMoveIndices[j - 1] + "[i2] & l2) == 0 {").new_line();
+                writer.append("               return false;").new_line();
+                writer.append("            } else {").new_line();
             }
-            writer.println("            return true;");
-            writer.println("         }");
+            writer.append("            return true;").new_line();
+            writer.append("         }").new_line();
         }
-        writer.println("         false");
-        writer.println("      }");
+        writer.append("         false").new_line();
+        writer.append("      }").new_line();
     }
 
     private String getStatesForState(LexerData data) {
@@ -921,7 +955,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
             }
             builder.append("},");
         }
-        return String.format("{%s}", builder);
+        return builder.toString();
     }
 
     private String getKindForState(LexerData data) {
@@ -948,7 +982,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 builder.append("}");
             }
         }
-        return String.format("{%s}", builder);
+        return builder.toString();
     }
 
     @Override
@@ -967,21 +1001,21 @@ class RustLexerGenerator extends LexerGeneratorRust {
         }
         params.append("active").append(i).append(": u64)");
 
-        writer.println("fn jjStopStringLiteralDfa" + data.getLexerStateSuffix() +
-            "(&self, pos: usize, " + params+ " -> usize {");
+        writer.append("fn jjStopStringLiteralDfa" + data.getLexerStateSuffix() +
+            "(&self, pos: usize, " + params+ " -> usize {").new_line();
 
         if (data.global.options().getDebugTokenManager())
-            writer.println("      debugStream.println(\"   No more string literal token matches are possible.\");");
+            writer.append("      debugStream.println(\"   No more string literal token matches are possible.\");").new_line();
 
-        writer.println("   switch (pos)");
-        writer.println("   {");
+        writer.append("   switch (pos)").new_line();
+        writer.append("   {").new_line();
 
         for (i = 0; i < (data.getMaxLen() - 1); i++) {
             if (statesForPos[i] == null) {
                 continue;
             }
 
-            writer.println("      case " + i + ":");
+            writer.append("      case " + i + ":").new_line();
 
             Enumeration<String> e = statesForPos[i].keys();
             while (e.hasMoreElements()) {
@@ -1006,49 +1040,49 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 }
 
                 if (condGenerated) {
-                    writer.println(")");
+                    writer.append(")").new_line();
 
                     String kindStr = stateSetString.substring(0, ind = stateSetString.indexOf(", "));
                     String afterKind = stateSetString.substring(ind + 2);
                     int jjmatchedPos = Integer.parseInt(afterKind.substring(0, afterKind.indexOf(", ")));
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
-                        writer.println("         {");
+                        writer.append("         {").new_line();
                     }
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
                         if (i == 0) {
-                            writer.println("            jjmatched_kind = " + kindStr + ";");
+                            writer.append("            jjmatched_kind = " + kindStr + ";").new_line();
 
                             if (((data.global.initMatch(data.getStateIndex()) != 0)
                                     && (data.global.initMatch(data.getStateIndex()) != Integer.MAX_VALUE))) {
-                                writer.println("            jjmatched_pos = 0;");
+                                writer.append("            jjmatched_pos = 0;").new_line();
                             }
                         }
                         else if (i == jjmatchedPos) {
                             if (data.isSubStringAtPos(i)) {
-                                writer.println("            if (jjmatched_pos != " + i + ")");
-                                writer.println("            {");
-                                writer.println("               jjmatched_kind = " + kindStr + ";");
-                                writer.println("               jjmatched_pos = " + i + ";");
-                                writer.println("            }");
+                                writer.append("            if (jjmatched_pos != " + i + ")").new_line();
+                                writer.append("            {").new_line();
+                                writer.append("               jjmatched_kind = " + kindStr + ";").new_line();
+                                writer.append("               jjmatched_pos = " + i + ";").new_line();
+                                writer.append("            }").new_line();
                             }
                             else {
-                                writer.println("            jjmatched_kind = " + kindStr + ";");
-                                writer.println("            jjmatched_pos = " + i + ";");
+                                writer.append("            jjmatched_kind = " + kindStr + ";").new_line();
+                                writer.append("            jjmatched_pos = " + i + ";").new_line();
                             }
                         }
                         else {
                             if (jjmatchedPos > 0) {
-                                writer.println("            if (jjmatched_pos < " + jjmatchedPos + ")");
+                                writer.append("            if (jjmatched_pos < " + jjmatchedPos + ")").new_line();
                             }
                             else {
-                                writer.println("            if (jjmatched_pos == 0)");
+                                writer.append("            if (jjmatched_pos == 0)").new_line();
                             }
-                            writer.println("            {");
-                            writer.println("               jjmatched_kind = " + kindStr + ";");
-                            writer.println("               jjmatched_pos = " + jjmatchedPos + ";");
-                            writer.println("            }");
+                            writer.append("            {").new_line();
+                            writer.append("               jjmatched_kind = " + kindStr + ";").new_line();
+                            writer.append("               jjmatched_pos = " + jjmatchedPos + ";").new_line();
+                            writer.append("            }").new_line();
                         }
                     }
 
@@ -1057,27 +1091,27 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     stateSetString = afterKind.substring(afterKind.indexOf(", ") + 2);
 
                     if (stateSetString.equals("null;")) {
-                        writer.println("            return -1;");
+                        writer.append("            return -1;").new_line();
                     }
                     else {
-                        writer.println(
-                                "            return " + getCompositeStateSet(data, stateSetString) + ";");
+                        writer.append(
+                                "            return " + getCompositeStateSet(data, stateSetString) + ";").new_line();
                     }
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
-                        writer.println("         }");
+                        writer.append("         }").new_line();
                     }
                     condGenerated = false;
                 }
             }
 
-            writer.println("         return -1;");
+            writer.append("         return -1;").new_line();
         }
 
-        writer.println("      default :");
-        writer.println("         return -1;");
-        writer.println("   }");
-        writer.println("}");
+        writer.append("      default :").new_line();
+        writer.append("         return -1;").new_line();
+        writer.append("   }").new_line();
+        writer.append("}").new_line();
 
         params.setLength(0);
         params.append("(int pos, ");
@@ -1087,19 +1121,19 @@ class RustLexerGenerator extends LexerGeneratorRust {
         params.append("long active").append(i).append(")");
 
         writer.append("private final int jjStartNfa" + data.getLexerStateSuffix() + params);
-        writer.println("{");
+        writer.append("{").new_line();
 
         if (data.isMixedState()) {
             if (data.generatedStates() != 0) {
-                writer.println(
+                writer.append(
                         "   return jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)
-                                + ", pos + 1);");
+                                + ", pos + 1);").new_line();
             }
             else {
-                writer.println("   return pos + 1;");
+                writer.append("   return pos + 1;").new_line();
             }
 
-            writer.println("}");
+            writer.append("}").new_line();
             return;
         }
 
@@ -1109,8 +1143,8 @@ class RustLexerGenerator extends LexerGeneratorRust {
             writer.append("active" + i + ", ");
         }
         writer.append("active" + i + ")");
-        writer.println(", pos + 1);");
-        writer.println("}");
+        writer.append(", pos + 1);").new_line();
+        writer.append("}").new_line();
     }
 
     @Override
@@ -1123,26 +1157,26 @@ class RustLexerGenerator extends LexerGeneratorRust {
         boolean ifGenerated;
 
         if (data.getMaxLen() == 0) {
-            writer.println("fn jj_move_string_literal_dfa0" + data.getLexerStateSuffix() + "(&self) -> usize ");
+            writer.append("fn jj_move_string_literal_dfa0" + data.getLexerStateSuffix() + "(&self) -> usize ").new_line();
             DumpNullStrLiterals(writer, data);
             return;
         }
 
         if (!data.global.boilerPlateDumped) {
-            writer.println("fn jj_stop_at_pos(&mut self, pos: usize, kind: u32) -> usize {");
-            writer.println("   self.jjmatched_kind = kind;");
-            writer.println("   self.jjmatched_pos = pos;");
+            writer.append("fn jj_stop_at_pos(&mut self, pos: usize, kind: u32) -> usize {").new_line();
+            writer.append("   self.jjmatched_kind = kind;").new_line();
+            writer.append("   self.jjmatched_pos = pos;").new_line();
 
             if (data.global.options().getDebugTokenManager()) {
-                writer.println(
-                        "   debugStream.println(\"   No more string literal token matches are possible.\");");
-                writer.println(
+                writer.append(
+                        "   debugStream.println(\"   No more string literal token matches are possible.\");").new_line();
+                writer.append(
                         "   debugStream.println(\"   Currently matched the first \" + (jjmatched_pos + 1) + "
-                                + "\" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");");
+                                + "\" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");").new_line();
             }
 
-            writer.println("   pos + 1");
-            writer.println("}");
+            writer.append("   pos + 1").new_line();
+            writer.append("}").new_line();
             data.global.boilerPlateDumped = true;
         }
 
@@ -1181,7 +1215,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
             }
             params.append(")");
 
-            writer.println("fn jj_move_string_literal_dfa" + i + data.getLexerStateSuffix() + params + " -> usize {");
+            writer.append("fn jj_move_string_literal_dfa" + i + data.getLexerStateSuffix() + params + " -> usize {").new_line();
             if (i != 0) {
                 if (i > 1) {
                     var atLeastOne = false;
@@ -1191,12 +1225,12 @@ class RustLexerGenerator extends LexerGeneratorRust {
                                 writer.append(" | ");
                             else
                                 atLeastOne = true;
-                            writer.println("   let active" + j + " = active_old" + j + " & old" + j + ";");
+                            writer.append("   let active" + j + " = active_old" + j + " & old" + j + ";").new_line();
                         }
                     }
 
                     if (i <= (data.getMaxLenForActive(j) + 1)) {
-                        writer.println("   let active" + j + " = active_old" + j + " & old" + j + ";");
+                        writer.append("   let active" + j + " = active_old" + j + " & old" + j + ";").new_line();
                     }
 
                     atLeastOne = false;
@@ -1218,7 +1252,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
                         writer.append("active" + j);
                     }
 
-                    writer.println(") == 0 {");
+                    writer.append(") == 0 {").new_line();
                     if (!data.isMixedState() && (data.generatedStates() != 0)) {
                         writer.append("      return self.jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 2) + ", ");
                         for (j = 0; j < (maxLongsReqd - 1); j++) {
@@ -1228,40 +1262,41 @@ class RustLexerGenerator extends LexerGeneratorRust {
                                 writer.append("0, ");
                         }
                         if (i <= (data.getMaxLenForActive(j) + 1))
-                            writer.println("old" + j + ");");
+                            writer.append("old" + j + ");").new_line();
                         else
-                            writer.println("0);");
+                            writer.append("0);").new_line();
                     }
                     else if (data.generatedStates() != 0)
-                        writer.println("      return self.jj_move_nfa" + data.getLexerStateSuffix() +
-                            "(" + InitStateName(data) + ", " + (i - 1) + ");");
+                        writer.append("      return self.jj_move_nfa" + data.getLexerStateSuffix() +
+                            "(" + InitStateName(data) + ", " + (i - 1) + ");").new_line();
                     else
-                        writer.println("      return " + i + ";");
+                        writer.append("      return " + i + ";").new_line();
                     writer.append("   }");
                 }
 
                 if (data.global.options().getDebugTokenManager()) {
-                    writer.println("   if self.jjmatched_kind != 0 && vjjmatchedKind != 0x" + Integer.toHexString(
-                                    Integer.MAX_VALUE) + " {");
-                    writer.println("      debugStream.println(\"   Currently matched the first \" + "
-                            + "(self.jjmatched_pos + 1) + \" characters as a \" + self.tokenImage[self.jjmatched_kind as usize] + \" token.\");");
-                    writer.println("   debugStream.println(\"   Possible string literal matches : { \"");
+                    writer.append("   if self.jjmatched_kind != 0 && vjjmatchedKind != 0x" + Integer.toHexString(
+                                    Integer.MAX_VALUE) + " {").new_line();
+                    writer.append("      debugStream.println(\"   Currently matched the first \" + "
+                            + "(self.jjmatched_pos + 1) + \" characters as a \" + self.tokenImage[self.jjmatched_kind as usize] + \" token.\");")
+                        .new_line();
+                    writer.append("   debugStream.println(\"   Possible string literal matches : { \"").new_line();
 
                     for (int vecs = 0; vecs < ((data.getMaxStrKind() / 64) + 1); vecs++) {
                         if (i <= data.getMaxLenForActive(vecs)) {
-                            writer.println(" +");
+                            writer.append(" +").new_line();
                             writer.append("         self.jjKindsForBitVector(" + vecs + ", ");
                             writer.append("active" + vecs + ") ");
                         }
                     }
 
-                    writer.println(" + \" } \");");
-                    writer.println("   }");
+                    writer.append(" + \" } \");").new_line();
+                    writer.append("   }").new_line();
                 }
                 writer.new_line();
 
-                writer.println("   let result = self.input_stream.read_char();");
-                writer.println("   if result.is_err() {");
+                writer.append("   let result = self.input_stream.read_char();").new_line();
+                writer.append("   if result.is_err() {").new_line();
 
                 if (!data.isMixedState() && (data.generatedStates() != 0)) {
                     writer.append("      self.jjStopStringLiteralDfa" + data.getLexerStateSuffix() + "(" + (i - 1) + ", ");
@@ -1275,38 +1310,41 @@ class RustLexerGenerator extends LexerGeneratorRust {
                     }
 
                     if (i <= data.getMaxLenForActive(k))
-                        writer.println("active" + k + ");");
+                        writer.append("active" + k + ");").new_line();
                     else
-                        writer.println("0);");
+                        writer.append("0);").new_line();
 
                     if (data.global.options().getDebugTokenManager()) {
-                        writer.println("      if self.jjmatched_kind != 0 && self.jjmatched_kind != 0x" +
-                            Integer.toHexString(Integer.MAX_VALUE));
-                        writer.println("         debugStream.println(\"   Currently matched the first \" + "
-                                + "(jjmatched_pos + 1) + \" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");");
+                        writer.append("      if self.jjmatched_kind != 0 && self.jjmatched_kind != 0x" +
+                            Integer.toHexString(Integer.MAX_VALUE))
+                            .new_line();
+                        writer.append("         debugStream.println(\"   Currently matched the first \" + "
+                                + "(jjmatched_pos + 1) + \" characters as a \" + tokenImage[jjmatched_kind] + \" token.\");")
+                            .new_line();
                     }
-                    writer.println("      return " + i + ";");
+                    writer.append("      return " + i + ";").new_line();
                 }
                 else if (data.generatedStates() != 0)
-                    writer.println("     return self.jj_move_nfa" + data.getLexerStateSuffix() +
-                                "(" + InitStateName(data) + ", " + (i - 1) + ");");
+                    writer.append("     return self.jj_move_nfa" + data.getLexerStateSuffix() +
+                                "(" + InitStateName(data) + ", " + (i - 1) + ");").new_line();
                 else
-                    writer.println("      return " + i + ";");
+                    writer.append("      return " + i + ";").new_line();
 
-                writer.println("   }");
-                writer.println("   self.cur_char = u32::from(result.unwrap());");
+                writer.append("   }").new_line();
+                writer.append("   self.cur_char = u32::from(result.unwrap());").new_line();
                 writer.new_line();
             }
 
             if ((i != 0) && data.global.options().getDebugTokenManager()) {
-                writer.println("   debugStream.println("
+                writer.append("   debugStream.println("
                         + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + "
                         : "")
                         + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
-                        + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
+                        + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());")
+                    .new_line();
             }
 
-            writer.println("   match self.cur_char {");
+            writer.append("   match self.cur_char {").new_line();
 
             CaseLoop:
             for (String key2 : keys) {
@@ -1349,15 +1387,15 @@ class RustLexerGenerator extends LexerGeneratorRust {
                 // Since we know key is a single character ...
                 if (data.ignoreCase()) {
                     if (c != Character.toUpperCase(c)) {
-                        writer.println("      " + (int) Character.toUpperCase(c) + " => {");
+                        writer.append("      " + (int) Character.toUpperCase(c) + " => {").new_line();
                     }
 
                     if (c != Character.toLowerCase(c)) {
-                        writer.println("      " + (int) Character.toLowerCase(c) + " => {");
+                        writer.append("      " + (int) Character.toLowerCase(c) + " => {").new_line();
                     }
                 }
 
-                writer.println("      " + (int) c + " => {");
+                writer.append("      " + (int) c + " => {").new_line();
 
                 long matchedKind;
                 String prefix = (i == 0) ? "         " : "            ";
@@ -1382,7 +1420,7 @@ class RustLexerGenerator extends LexerGeneratorRust {
 
                             int kindToPrint;
                             if (i != 0) {
-                                writer.println("(active" + j + " & 0x" + Long.toHexString(1L << k) + ") != 0");
+                                writer.append("(active" + j + " & 0x" + Long.toHexString(1L << k) + ") != 0").new_line();
                             }
 
                             if ((data.getIntermediateKinds() != null) && (
@@ -1418,25 +1456,26 @@ class RustLexerGenerator extends LexerGeneratorRust {
                                 int stateSetName = GetStateSetForKind(data, i, (j * 64) + k);
 
                                 if (stateSetName != -1) {
-                                    writer.println(
+                                    writer.append(
                                             prefix + "return self.jjStartNfaWithStates" + data.getLexerStateSuffix() + "(" + i
-                                                    + ", " + kindToPrint + ", " + stateSetName + ");");
+                                                    + ", " + kindToPrint + ", " + stateSetName + ");")
+                                        .new_line();
                                 }
                                 else {
-                                    writer.println(prefix + "return self.jj_stop_at_pos" + "(" + i + ", " + kindToPrint + ");");
+                                    writer.append(prefix + "return self.jj_stop_at_pos" + "(" + i + ", " + kindToPrint + ");").new_line();
                                 }
-                                writer.println("      }");
+                                writer.append("      }").new_line();
                             }
                             else if (((data.global.initMatch(data.getStateIndex()) != 0)
                                     && (data.global.initMatch(data.getStateIndex()) != Integer.MAX_VALUE)) || (i
                                     != 0)) {
-                                writer.println("         {");
-                                writer.println(prefix + "self.jjmatched_kind = " + kindToPrint + ";");
-                                writer.println(prefix + "self.jjmatched_pos = " + i + ";");
-                                writer.println("         }");
+                                writer.append("         {").new_line();
+                                writer.append(prefix + "self.jjmatched_kind = " + kindToPrint + ";").new_line();
+                                writer.append(prefix + "self.jjmatched_pos = " + i + ";").new_line();
+                                writer.append("         }").new_line();
                             }
                             else {
-                                writer.println(prefix + "self.jjmatched_kind = " + kindToPrint + ";");
+                                writer.append(prefix + "self.jjmatched_kind = " + kindToPrint + ";").new_line();
                             }
                         }
                     }
@@ -1464,8 +1503,8 @@ class RustLexerGenerator extends LexerGeneratorRust {
 
                             writer.append("0x" + Long.toHexString(info.validKinds[j]));
                         }
-                        writer.println(");");
-                        writer.println("      }");
+                        writer.append(");").new_line();
+                        writer.append("      }").new_line();
                     }
                     else {
                         writer.append("         return self.jj_move_string_literal_dfa" + (i + 1) + data.getLexerStateSuffix() + "(");
@@ -1494,51 +1533,49 @@ class RustLexerGenerator extends LexerGeneratorRust {
                                 writer.append("active" + j + ", 0");
                         }
 
-                        writer.println(");");
-                        writer.println("      }");
+                        writer.append(");").new_line();
+                        writer.append("      }").new_line();
                     }
                 }
                 else {// A very special case.
                     if ((i == 0) && data.isMixedState()) {
 
                         if (data.generatedStates() != 0) {
-                            writer.println(
-                                "         return self.jj_move_nfa" + data.getLexerStateSuffix() + "("
-                                    + InitStateName(
-                                    data) + ", 0);");
+                            writer.append("         return self.jj_move_nfa" + data.getLexerStateSuffix() + "("
+                                    + InitStateName(data) + ", 0);").new_line();
                         }
                         else {
-                            writer.println("         return 1;");
+                            writer.append("         return 1;").new_line();
                         }
                     }
                     else if (i != 0) // No more str literals to look for
                     {
                         startNfaNeeded = true;
                     }
-                    writer.println("      }");
+                    writer.append("      }").new_line();
                 }
             }
 
-            writer.println("      _ => {");
+            writer.append("      _ => {").new_line();
 
             if (data.global.options().getDebugTokenManager()) {
-                writer.println("      debugStream.println(\"   No string literal matches possible.\");");
+                writer.append("      debugStream.println(\"   No string literal matches possible.\");").new_line();
             }
 
             if (data.generatedStates() != 0) {
                 if (i == 0) {
                     // This means no string literal is possible. Just move nfa with this guy and return.
-                    writer.println("         return self.jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(
-                                            data) + ", 0);");
+                    writer.append("         return self.jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(
+                                            data) + ", 0);").new_line();
                 }
                 else
                     startNfaNeeded = true;
             }
             else {
-                writer.println("         return " + (i + 1) + ";");
+                writer.append("         return " + (i + 1) + ";").new_line();
             }
-            writer.println("      }");
-            writer.println("   }");
+            writer.append("      }").new_line();
+            writer.append("   }").new_line();
 
             if ((i != 0) && startNfaNeeded) {
                 if (!data.isMixedState() && (data.generatedStates() != 0)) {
@@ -1556,17 +1593,17 @@ class RustLexerGenerator extends LexerGeneratorRust {
                             writer.append("0, ");
                     }
                     if (i <= data.getMaxLenForActive(k))
-                        writer.println("active" + k + ")");
+                        writer.append("active" + k + ")").new_line();
                     else
-                        writer.println("0)");
+                        writer.append("0)").new_line();
                 }
                 else if (data.generatedStates() != 0)
-                    writer.println("   self.jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "  + i + ")");
+                    writer.append("   self.jj_move_nfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "  + i + ")").new_line();
                 else
-                    writer.println("   return " + (i + 1));
+                    writer.append("   return " + (i + 1)).new_line();
             }
 
-            writer.println("}");
+            writer.append("}").new_line();
             writer.new_line();
         }
 
@@ -1577,15 +1614,15 @@ class RustLexerGenerator extends LexerGeneratorRust {
 
     @Override
     protected final void dumpMoveNfa(SourceWriter writer, NfaStateData data) {
-        writer.println("fn jj_move_nfa" + data.getLexerStateSuffix() + "(&mut self, start_state: usize, cur_pos: usize) -> usize {");
+        writer.append("fn jj_move_nfa" + data.getLexerStateSuffix() + "(&mut self, start_state: usize, cur_pos: usize) -> usize {").new_line();
         if (data.generatedStates() == 0) {
-            writer.println("   return cur_pos;");
-            writer.println("}");
+            writer.append("   return cur_pos;").new_line();
+            writer.append("}").new_line();
             return;
         }
 
         if (data.isMixedState()) {
-            writer.println("""
+            writer.append("""
    let str_kind = self.jjmatched_kind;
    let str_pos = self.jjmatched_pos;
    let seen_upto: usize = cur_pos + 1;
@@ -1596,91 +1633,96 @@ class RustLexerGenerator extends LexerGeneratorRust {
    }
    self.cur_char = u32::from(result.unwrap());
    let mut cur_pos: usize = 0;
-""");
+""").new_line();
         }
 
-        writer.println("   let mut starts_at: usize = 0;");
-        writer.println("   self.jjnew_state_cnt = " + data.generatedStates() + ";");
-        writer.println("   let mut i: usize = 1;");
-        writer.println("   self.jjstate_set[0] = start_state;");
+        writer.append("   let mut starts_at: usize = 0;").new_line();
+        writer.append("   self.jjnew_state_cnt = " + data.generatedStates() + ";").new_line();
+        writer.append("   let mut i: usize = 1;").new_line();
+        writer.append("   self.jjstate_set[0] = start_state;").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println("      debugStream.println(\"   Starting NFA to match one of : \" + "
-                    + "jjKindsForStateVector(self.cur_lex_state, jjstate_set, 0, 1));");
-            writer.println("      debugStream.println("
+            writer.append("      debugStream.println(\"   Starting NFA to match one of : \" + "
+                    + "jjKindsForStateVector(self.cur_lex_state, jjstate_set, 0, 1));").new_line();
+            writer.append("      debugStream.println("
                     + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
                     + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
-                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
+                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());")
+                .new_line();
         }
 
-        writer.println("   let mut kind: u32 = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-        writer.println("   loop {");
-        writer.println("      self.jjround += 1;");
-        writer.println("      if self.jjround == 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {");
-        writer.println("         self.re_init_rounds();");
-        writer.println("      }");
+        writer.append("   let mut kind: u32 = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
+        writer.append("   loop {").new_line();
+        writer.append("      self.jjround += 1;").new_line();
+        writer.append("      if self.jjround == 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {").new_line();
+        writer.append("         self.re_init_rounds();").new_line();
+        writer.append("      }").new_line();
 
-        writer.println("      if self.cur_char < 64 {");
+        writer.append("      if self.cur_char < 64 {").new_line();
         DumpAsciiMoves(writer, data, 0);
-        writer.println("      }");
+        writer.append("      }").new_line();
 
-        writer.println("      else if self.cur_char < 128 {");
+        writer.append("      else if self.cur_char < 128 {").new_line();
         DumpAsciiMoves(writer, data, 1);
-        writer.println("      }");
+        writer.append("      }").new_line();
 
-        writer.println("      else {");
+        writer.append("      else {").new_line();
         DumpCharAndRangeMoves(writer, data);
-        writer.println("      }");
-        writer.println("      if kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {");
-        writer.println("         self.jjmatched_kind = kind;");
-        writer.println("         self.jjmatched_pos = cur_pos;");
-        writer.println("         kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-        writer.println("      }");
-        writer.println("      cur_pos += 1;");
+        writer.append("      }").new_line();
+        writer.append("      if kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + " {").new_line();
+        writer.append("         self.jjmatched_kind = kind;").new_line();
+        writer.append("         self.jjmatched_pos = cur_pos;").new_line();
+        writer.append("         kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
+        writer.append("      }").new_line();
+        writer.append("      cur_pos += 1;").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println("      if self.jjmatched_kind != 0 && self.jjmatched_kind != 0x"
-                + Integer.toHexString(Integer.MAX_VALUE) + " {");
-            writer.println("         debugStream.println("
+            writer.append("      if self.jjmatched_kind != 0 && self.jjmatched_kind != 0x"
+                + Integer.toHexString(Integer.MAX_VALUE) + " {")
+                .new_line();
+            writer.append("         debugStream.println("
                     + "\"   Currently matched the first \" + (jjmatched_pos + 1) + \" characters as"
-                    + " a \" + tokenImage[jjmatched_kind] + \" token.\");");
-            writer.println("      }");
+                    + " a \" + tokenImage[jjmatched_kind] + \" token.\");")
+                .new_line();
+            writer.append("      }").new_line();
         }
 
-        writer.println("      i = self.jjnew_state_cnt;");
-        writer.println("      self.jjnew_state_cnt = starts_at;");
-        writer.println("      starts_at = " + data.generatedStates() + " - self.jjnew_state_cnt;");
-        writer.println("      if i == starts_at {");
+        writer.append("      i = self.jjnew_state_cnt;").new_line();
+        writer.append("      self.jjnew_state_cnt = starts_at;").new_line();
+        writer.append("      starts_at = " + data.generatedStates() + " - self.jjnew_state_cnt;").new_line();
+        writer.append("      if i == starts_at {").new_line();
         if (data.isMixedState())
-            writer.println("         break;");
+            writer.append("         break;").new_line();
         else
-            writer.println("         return cur_pos;");
-        writer.println("      }");
+            writer.append("         return cur_pos;").new_line();
+        writer.append("      }").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println("      debugStream.println(\"   Possible kinds of longer matches : \" + "
-                    + "jjKindsForStateVector(self.cur_lex_state, jjstate_set, starts_at, i));");
+            writer.append("      debugStream.println(\"   Possible kinds of longer matches : \" + "
+                    + "jjKindsForStateVector(self.cur_lex_state, jjstate_set, starts_at, i));")
+                .new_line();
         }
 
-        writer.println("      let result = self.input_stream.read_char();");
-        writer.println("      if result.is_err() {");
+        writer.append("      let result = self.input_stream.read_char();").new_line();
+        writer.append("      if result.is_err() {").new_line();
         if (data.isMixedState())
-            writer.println("         break;");
+            writer.append("         break;").new_line();
         else
-            writer.println("         return cur_pos;");
-        writer.println("      }");
-        writer.println("      self.cur_char = u32::from(result.unwrap());");
+            writer.append("         return cur_pos;").new_line();
+        writer.append("      }").new_line();
+        writer.append("      self.cur_char = u32::from(result.unwrap());").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println("      debugStream.println("
+            writer.append("      debugStream.println("
                     + (data.global.maxLexStates() > 1 ? "\"<\" + LEX_STATE_NAMES[self.cur_lex_state] + \">\" + " : "")
                     + "\"Current character : \" + TokenException.addEscapes(String.valueOf(cur_char)) + \" (\" + (int)cur_char + \") "
-                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());");
+                    + "at line \" + input_stream.get_end_line() + \" column \" + input_stream.get_end_column());")
+                .new_line();
         }
-        writer.println("   }");
+        writer.append("   }").new_line();
 
         if (data.isMixedState()) {
-            writer.println("""
+            writer.append("""
    if self.jjmatched_pos > str_pos {
       return cur_pos;
    }
@@ -1706,8 +1748,8 @@ class RustLexerGenerator extends LexerGeneratorRust {
    }
 
    to_ret
-""");
+""").new_line();
         }
-        writer.println("}");
+        writer.append("}").new_line();
     }
 }

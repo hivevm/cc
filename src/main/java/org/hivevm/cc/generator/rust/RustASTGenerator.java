@@ -14,7 +14,8 @@ import org.hivevm.cc.jjtree.ASTNode;
 import org.hivevm.cc.jjtree.ASTNodeDescriptor;
 import org.hivevm.cc.jjtree.ASTWriter;
 import org.hivevm.cc.jjtree.NodeScope;
-import org.hivevm.core.TemplateLambda;
+import org.hivevm.source.SourceProvider;
+import org.hivevm.source.Template;
 
 class RustASTGenerator extends TreeGenerator {
 
@@ -133,18 +134,16 @@ class RustASTGenerator extends TreeGenerator {
     }
 
     private void generateTreeState(TreeOptions context) {
-        RustTemplate.TREE_STATE.render(context);
+        RustSources.TREE_STATE.render(context);
     }
 
 
     private void generateTreeConstants(TreeOptions context) {
-        var options = new TemplateLambda(context);
+        var options = Template.newContext(context);
         options.add("NODES", ASTNodeDescriptor.getNodeIds().size())
-            .set("index",i -> i)
-            .set("label",i -> ASTNodeDescriptor.getNodeIds().get(i))
-            .set("title", i -> ASTNodeDescriptor.getNodeNames().get(i));
-
-        RustTemplate.TREE_CONSTANTS.render(options);
+            .set("LABEL",i -> ASTNodeDescriptor.getNodeIds().get(i))
+            .set("TITLE", i -> ASTNodeDescriptor.getNodeNames().get(i));
+        RustSources.TREE_CONSTANTS.render(options);
     }
 
     private void generateVisitors(TreeOptions context) {
@@ -157,7 +156,7 @@ class RustASTGenerator extends TreeGenerator {
         var returnValue = RustASTGenerator.returnValue(context.getVisitorReturnType(), argumentType);
         var isVoidReturnType = "void".equals(context.getVisitorReturnType());
 
-        var options = new TemplateLambda(context);
+        var options =   Template.newContext(context);
         options.add("NODES", nodes.collect(Collectors.toList()));
         options.set("RETURN_TYPE", context.getVisitorReturnType());
         options.set("RETURN_VALUE", returnValue);
@@ -167,16 +166,16 @@ class RustASTGenerator extends TreeGenerator {
         options.set(HiveCC.JJTREE_MULTI, context.getMulti());
         options.set("NODE_PREFIX", context.getNodePrefix());
 
-        RustTemplate.VISITOR.render(options, context.getParserName());
-        RustTemplate.DEFAULT_VISITOR.render(options, context.getParserName());
+        RustSources.VISITOR.render(options, context.getParserName());
+        RustSources.DEFAULT_VISITOR.render(options, context.getParserName());
     }
 
     private void generateNode(TreeOptions context) {
-        RustTemplate.NODE.render(context);
+        RustSources.NODE.render(context);
     }
 
     private void generateTreeNodes(TreeOptions context) {
-        var options = new TemplateLambda(context);
+        var options =   Template.newContext(context);
         options.set(HiveCC.JJTREE_VISITOR_RETURN_VOID, context.getVisitorReturnType().equals("void"));
 
         var excludes = context.getExcudeNodes();
@@ -187,7 +186,7 @@ class RustASTGenerator extends TreeGenerator {
 
             options.set(HiveCC.JJTREE_NODE_TYPE, nodeType);
 
-            RustTemplate.MULTI_NODE.render(options, nodeType);
+            RustSources.MULTI_NODE.render(options, nodeType);
         }
     }
 

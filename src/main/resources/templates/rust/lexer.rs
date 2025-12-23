@@ -1,30 +1,32 @@
 use std::cmp;
-use crate::{{RUST_MODULE}}::token::Token;
-use crate::{{RUST_MODULE}}::charstream::CharStream;
+use crate::__RUST_MODULE__::token::Token;
+use crate::__RUST_MODULE__::charstream::CharStream;
 
-@foreach(index : LOHI_BYTES)
-const JJBIT_VEC{{index}} : [u64; {{LOHI_BYTES_LENGTH}}] = [{{index.bytes}}];
-@end
+//@foreach(LOHI_BYTES)
+const JJBIT_VEC__LOHI_BYTES_INDEX__ : [u64; __LOHI_BYTES_LENGTH__] = [__LOHI_BYTES_BYTES__];
+//@end
 
-pub const LEX_STATE_NAMES : [&str; {{STATE_NAMES_LENGTH}}] = [
-@foreach(name : STATE_NAMES)
-   "{{name}}",
-@end
+pub const LEX_STATE_NAMES : [&str; __STATE_NAMES_LENGTH__] = [
+//@foreach(STATE_NAMES)
+   "__STATE_NAME__",
+//@end
 ];
 
-pub const JJSTR_LITERAL_IMAGES : [&str; {{LITERAL_IMAGES_LENGTH}}] = [
-@foreach(name : LITERAL_IMAGES)
-   "{{name}}",
-@end
+pub const JJSTR_LITERAL_IMAGES : [&str; __LITERAL_IMAGES_LENGTH__] = [
+//@foreach(LITERAL_IMAGES)
+   "__LITERAL_IMAGE_NAME__",
+//@end
 ];
 
-{{dumpStaticVarDeclarations}}
-{{DumpStateSets}}
+//@var(dumpStaticVarDeclarations)
 
-@if(DEBUG_TOKEN_MANAGER)
-const statesForState : [][][] = {{STATES_FOR_STATE}};
-const kindForState : [][] = {{KIND_FOR_STATE}};
-@fi
+//@var(DumpStateSets)
+
+
+//@if(DEBUG_TOKEN_MANAGER)
+const statesForState : [][][] = {__STATES_FOR_STATE__};
+const kindForState : [][] = {__KIND_FOR_STATE__};
+//@fi
 
 pub struct Lexer<'a> {
   cur_lex_state: i8,
@@ -34,17 +36,17 @@ pub struct Lexer<'a> {
   jjmatched_pos: usize,
   jjmatched_kind: u32,
 
-  jjrounds : [usize; {{STATE_SET_SIZE}}],
-  jjstate_set : [usize; {{STATE_SET_SIZE2}}],
+  jjrounds : [usize; __STATE_SET_SIZE__],
+  jjstate_set : [usize; __STATE_SET_SIZE2__],
   jjimage_len : usize,
   length_of_match : usize,
   cur_char : u32,
   input_stream: CharStream<'a>,
-@if(HAS_LOOP)
-  jjemptyLineNo : [usize; {{MAX_LEX_STATES}}],
-	jjemptyColNo : [usize; {{MAX_LEX_STATES}}],
-  jjbeenHere : [bool; {{MAX_LEX_STATES}}],
-@fi
+//@if(HAS_LOOP)
+  jjemptyLineNo : [usize; __MAX_LEX_STATES__],
+  jjemptyColNo : [usize; __MAX_LEX_STATES__],
+  jjbeenHere : [bool; __MAX_LEX_STATES__],
+//@fi
 
 }
 
@@ -52,23 +54,23 @@ impl<'a> Lexer<'a> {
 
   pub fn new(text: &'a str) -> Self {
     Lexer {
-      cur_lex_state: {{DEFAULT_LEX_STATE}},
-      default_lex_state: {{DEFAULT_LEX_STATE}},
+      cur_lex_state: __DEFAULT_LEX_STATE__,
+      default_lex_state: __DEFAULT_LEX_STATE__,
       jjnew_state_cnt: 0,
       jjround: 0,
       jjmatched_pos: 0,
       jjmatched_kind: 0,
-      jjrounds: [0; {{STATE_SET_SIZE}}],
-      jjstate_set: [0; {{STATE_SET_SIZE2}}],
+      jjrounds: [0; __STATE_SET_SIZE__],
+      jjstate_set: [0; __STATE_SET_SIZE2__],
       jjimage_len: 0,
       length_of_match: 0,
       cur_char: 0,
       input_stream: CharStream::new(text),
-@if(HAS_LOOP)
-      jjemptyLineNo: [0, {{MAX_LEX_STATES}}],
-      jjemptyColNo: [0, {{MAX_LEX_STATES}}],
-      jjbeenHere: [false, {{MAX_LEX_STATES}}],
-@fi
+//@if(HAS_LOOP)
+      jjemptyLineNo: [0, __MAX_LEX_STATES__],
+      jjemptyColNo: [0, __MAX_LEX_STATES__],
+      jjbeenHere: [false, __MAX_LEX_STATES__],
+//@fi
     }
   }
 
@@ -80,17 +82,17 @@ impl<'a> Lexer<'a> {
       jjround: 0,
       jjmatched_pos: 0,
       jjmatched_kind: 0,
-      jjrounds: [0; {{STATE_SET_SIZE}}],
-      jjstate_set: [0; {{STATE_SET_SIZE2}}],
+      jjrounds: [0; __STATE_SET_SIZE__],
+      jjstate_set: [0; __STATE_SET_SIZE2__],
       jjimage_len: 0,
       length_of_match: 0,
       cur_char: 0,
       input_stream: CharStream::new(text),
-@if(HAS_LOOP)
-      jjemptyLineNo: [0, {{MAX_LEX_STATES}}],
-      jjemptyColNo: [0, {{MAX_LEX_STATES}}],
-      jjbeenHere: [false, {{MAX_LEX_STATES}}],
-@fi
+//@if(HAS_LOOP)
+      jjemptyLineNo: [0, __MAX_LEX_STATES__],
+      jjemptyColNo: [0, __MAX_LEX_STATES__],
+      jjbeenHere: [false, __MAX_LEX_STATES__],
+//@fi
     };
     lexer.re_init_rounds();
     lexer.switch_to(lex_state);
@@ -103,7 +105,7 @@ impl<'a> Lexer<'a> {
 */
 
   pub fn switch_to(&mut self, lex_state: i8) {
-    if lex_state >= {{STATE_COUNT}} {
+    if lex_state >= __STATE_COUNT__ {
        panic!("Error: Ignoring invalid lexical state : {}. State unchanged." , lex_state);
     }
     else {
@@ -113,7 +115,7 @@ impl<'a> Lexer<'a> {
 
   fn re_init_rounds(&mut self)
   {
-    let mut i : usize = {{STATE_SET_SIZE}};
+    let mut i : usize = __STATE_SET_SIZE__;
     self.jjround = 0x80000001;
     while i > 0 {
         i -= 1;
@@ -122,80 +124,80 @@ impl<'a> Lexer<'a> {
   }
 
   fn jj_fill_token(&self) -> Token {
-@if(KEEP_LINE_COOL)
+//@if(KEEP_LINE_COOL)
     let mut begin_line : usize = 0;
     let mut end_line : usize = 0;
     let mut begin_column : usize = 0;
     let mut end_column : usize = 0;
-@fi
-@if(HAS_EMPTY_MATCH)
+//@fi
+//@if(HAS_EMPTY_MATCH)
     if self.jjmatched_pos < 0 {
       if (image == null)
         cur_token_image = "";
       else
         cur_token_image = image.toString();
 
-@if(KEEP_LINE_COOL)
+//@if(KEEP_LINE_COOL)
       begin_line = end_line = self.input_stream.get_end_line();
       begin_column = end_column = self.input_stream.get_end_column();
-@fi
+//@fi
     } else {
       String im = JJSTR_LITERAL_IMAGES[self.jjmatched_kind as usize];
       cur_token_image: &str = if im == "" { self.input_stream.get_image() } else { im };
-@if(KEEP_LINE_COOL)
+//@if(KEEP_LINE_COOL)
       begin_line = self.input_stream.get_begin_line();
       begin_column = self.input_stream.get_begin_column();
       end_line = self.input_stream.get_end_line();
       end_column = self.input_stream.get_end_column();
-@fi
+//@fi
     }
-@else
+//@else
     let im : &str = JJSTR_LITERAL_IMAGES[self.jjmatched_kind as usize];
     let cur_token_image= if im == "" { self.input_stream.get_image() } else { im.to_string() };
-@if(KEEP_LINE_COOL)
+//@if(KEEP_LINE_COOL)
     begin_line = self.input_stream.get_begin_line();
     begin_column = self.input_stream.get_begin_column();
     end_line = self.input_stream.get_end_line();
     end_column = self.input_stream.get_end_column();
-@fi
-@fi
-@if(KEEP_LINE_COOL)
+//@fi
+//@fi
+//@if(KEEP_LINE_COOL)
     Token::new(self.jjmatched_kind, cur_token_image, begin_line, begin_column, end_line, end_column)
-@else
+//@else
     Token::new(self.jjmatched_kind, cur_token_image)
-@fi
+//@fi
   }
 
   pub fn get_next_token(&mut self) -> Token {
-@if(HAS_SPECIAL)
+//@if(HAS_SPECIAL)
     let mut specialToken: Token;
-@fi
+//@fi
     let mut matched_token: Token;
     let mut cur_pos: usize = 0;
 
     'EOFLoop:
     loop {
-       let result = self.input_stream.begin_token();
-       if !result.is_err() {
-         self.cur_char = u32::from(result.unwrap());
-       } else {
-@if(DEBUG_TOKEN_MANAGER)
+      let result = self.input_stream.begin_token();
+      if !result.is_err() {
+        self.cur_char = u32::from(result.unwrap());
+      } else {
+//@if(DEBUG_TOKEN_MANAGER)
         debugStream.println(\"Returning the <EOF> token.\\n\");
-@fi
+//@fi
         self.jjmatched_kind = 0;
         self.jjmatched_pos = usize::MAX;
         matched_token = self.jj_fill_token();
-@if(HAS_SPECIAL)
+//@if(HAS_SPECIAL)
         matched_token.specialToken = specialToken;
-@fi
-        {{DumpGetNextToken}}
+//@fi
+        __DumpGetNextToken__
     }
     Token::new(0, String::from(""), 0,0,0, 0)
   }
 
   fn skip_lexical_actions(&self, matched_token: &Token) {
     match self.jjmatched_kind {
-      {{DumpSkipActions}}
+      __DumpSkipActions__
       _=> {}
     }
   }
@@ -204,14 +206,14 @@ impl<'a> Lexer<'a> {
     self.length_of_match = self.jjmatched_pos + 1;
     self.jjimage_len += self.length_of_match;
     match self.jjmatched_kind {
-      {{DumpMoreActions}}
+      __DumpMoreActions__
       _=> {}
     }
   }
 
   fn token_lexical_actions(&self, matched_token: &Token) {
     match self.jjmatched_kind {
-      {{DumpTokenActions}}
+      __DumpTokenActions__
       _=> {}
     }
   }
@@ -239,7 +241,7 @@ impl<'a> Lexer<'a> {
     self.jj_check_n_add(state1);
     self.jj_check_n_add(state2);
   }
-@if(CHECK_NADD_STATES_DUAL_NEEDED)
+//@if(CHECK_NADD_STATES_DUAL_NEEDED)
 
   fn jj_check_n_add_states(&mut self, start: usize, end: usize) {
     let mut do_while = true;
@@ -250,25 +252,25 @@ impl<'a> Lexer<'a> {
       index += 1;
     }
   }
-@fi
-@if(CHECK_NADD_STATES_UNARY_NEEDED)
+//@fi
+//@if(CHECK_NADD_STATES_UNARY_NEEDED)
 
   fn jj_check_n_add_states(&mut self, start: usize) {
     self.jj_check_n_add(JJNEXT_STATES[start]);
     self.jj_check_n_add(JJNEXT_STATES[start + 1]);
   }
-@fi
+//@fi
 
-@foreach(name: STATES)
-{{name.NfaAndDfa}}
-@end
+//@foreach(STATES)
+__NfaAndDfa__
+//@end
 }
 
-@foreach(nfa : NON_ASCII_TABLE)
-
-fn jj_can_move_{{nfa.NON_ASCII_METHOD}}(hi_byte: u32, i1: usize, i2: usize, l1: u64, l2: u64) -> bool {
+//@foreach(NON_ASCII_TABLE)
+fn jj_can_move__ASCII_METHOD__(hi_byte: u32, i1: usize, i2: usize, l1: u64, l2: u64) -> bool {
   match hi_byte {
-{{nfa.ASCII_MOVE}}
+__ASCII_MOVE__
   }
 }
-@end
+
+//@end

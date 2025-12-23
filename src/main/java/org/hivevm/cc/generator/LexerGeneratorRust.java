@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import org.hivevm.cc.lexer.NfaState;
-import org.hivevm.core.SourceWriter;
+import org.hivevm.source.SourceWriter;
 
 /**
  * The {@link LexerGeneratorRust} class.
@@ -24,16 +24,16 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
         if (byteNum >= 0) {
             if (state.asciiMoves[byteNum] != 0L) {
-                writer.println("               " + state.stateName + " => {");
+                writer.append("               " + state.stateName + " => {").new_line();
                 DumpAsciiMoveForCompositeState(writer, data, state, byteNum, false);
-                writer.println("               }");
+                writer.append("               }").new_line();
                 return "";
             }
         }
         else if (state.nonAsciiMethod != -1) {
-            writer.println("               " + state.stateName + " => {");
+            writer.append("               " + state.stateName + " => {").new_line();
             DumpNonAsciiMoveForCompositeState(writer, data, state);
-            writer.println("               }");
+            writer.append("               }").new_line();
             return "";
         }
 
@@ -84,8 +84,8 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
         if (neededStates == 0) {
             if ((stateForCase != null) && toPrint.equals("")) {
-                writer.println("                  break;");
-                writer.println("               }");
+                writer.append("                  break;").new_line();
+                writer.append("               }").new_line();
             }
 
             return;
@@ -100,11 +100,11 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             cases.add("" + stateNameForComposite(data, key));
             if (!dumped[toBePrinted.stateName] && !stateBlock && (toBePrinted.inNextOf > 1))
                 cases.add("" + toBePrinted.stateName);
-            writer.println("               " + String.join(" | ", cases) + " => {");
+            writer.append("               " + String.join(" | ", cases) + " => {").new_line();
 
             dumped[toBePrinted.stateName] = true;
             DumpNonAsciiMove(writer, data, toBePrinted, dumped);
-            writer.println("               }");
+            writer.append("               }").new_line();
             return;
         }
 
@@ -113,7 +113,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
         }
 
         int keyState = stateNameForComposite(data, key);
-        writer.println("               " + keyState + " => {");
+        writer.append("               " + keyState + " => {").new_line();
         if (keyState < data.generatedStates()) {
             dumped[keyState] = true;
         }
@@ -129,7 +129,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             }
         }
 
-        writer.println("               }");
+        writer.append("               }").new_line();
     }
 
     private void DumpAsciiMove(SourceWriter writer, NfaStateData data, NfaState state, int byteNum,
@@ -166,7 +166,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
         }
 
         if (!cases.isEmpty())
-            writer.println("               " + String.join(" | ", cases) + " => {");
+            writer.append("               " + String.join(" | ", cases) + " => {").new_line();
 
         int oneBit = NfaState.OnlyOneBitSet(state.asciiMoves[byteNum]);
         if ((state.asciiMoves[byteNum] != 0xffffffffffffffffL)
@@ -179,13 +179,13 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             }
 
             if (oneBit != -1)
-                writer.println("                  if self.cur_char == " + ((64 * byteNum) + oneBit) + kindCheck + " {");
+                writer.append("                  if self.cur_char == " + ((64 * byteNum) + oneBit) + kindCheck + " {").new_line();
             else
-                writer.println("                  if (" + toHexString(state.asciiMoves[byteNum])
-                    + " & l) != 0" + kindCheck + " {");
+                writer.append("                  if (" + toHexString(state.asciiMoves[byteNum])
+                    + " & l) != 0" + kindCheck + " {").new_line();
 
-            writer.println("                     kind = " + state.kindToPrint + ";");
-            writer.println("                  }");
+            writer.append("                     kind = " + state.kindToPrint + ";").new_line();
+            writer.append("                  }").new_line();
 
             return;
         }
@@ -194,32 +194,32 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
         boolean hasIf = false;
         if (state.kindToPrint != Integer.MAX_VALUE) {
             if (oneBit != -1) {
-                writer.println("                  if self.cur_char != " + ((64 * byteNum) + oneBit) + " {");
-                writer.println("                     break;");
-                writer.println("                  }");
+                writer.append("                  if self.cur_char != " + ((64 * byteNum) + oneBit) + " {").new_line();
+                writer.append("                     break;").new_line();
+                writer.append("                  }").new_line();
             }
             else if (state.asciiMoves[byteNum] != 0xffffffffffffffffL) {
-                writer.println("                  if (" + toHexString(state.asciiMoves[byteNum]) + " & l) == 0 {");
-                writer.println("                     break;");
-                writer.println("                  }");
+                writer.append("                  if (" + toHexString(state.asciiMoves[byteNum]) + " & l) == 0 {").new_line();
+                writer.append("                     break;").new_line();
+                writer.append("                  }").new_line();
             }
 
             if (onlyState) {
-                writer.println("                  kind = " + state.kindToPrint + ";");
+                writer.append("                  kind = " + state.kindToPrint + ";").new_line();
             }
             else {
-                writer.println("                  if kind > " + state.kindToPrint + " {");
-                writer.println("                     kind = " + state.kindToPrint + ";");
-                writer.println("                  }");
+                writer.append("                  if kind > " + state.kindToPrint + " {").new_line();
+                writer.append("                     kind = " + state.kindToPrint + ";").new_line();
+                writer.append("                  }").new_line();
             }
         }
         else if (oneBit != -1) {
-            writer.println("                  if self.cur_char == " + ((64 * byteNum) + oneBit) + " {");
+            writer.append("                  if self.cur_char == " + ((64 * byteNum) + oneBit) + " {").new_line();
             prefix = "   ";
             hasIf = true;
         }
         else if (state.asciiMoves[byteNum] != 0xffffffffffffffffL) {
-            writer.println("                  if (" + toHexString(state.asciiMoves[byteNum]) + " & l) != 0 {");
+            writer.append("                  if (" + toHexString(state.asciiMoves[byteNum]) + " & l) != 0 {").new_line();
             prefix = "   ";
             hasIf = true;
         }
@@ -229,16 +229,16 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             if (state.next.usefulEpsilonMoves == 1) {
                 int name = stateNames[0];
                 if (nextIntersects) {
-                    writer.println(prefix + "                  self.jj_check_n_add(" + name + ");");
+                    writer.append(prefix + "                  self.jj_check_n_add(" + name + ");").new_line();
                 }
                 else {
-                    writer.println(prefix + "                  self.jjstate_set[self.jjnew_state_cnt] = " + name + ";");
-                    writer.println(prefix + "                  self.jjnew_state_cnt += 1;");
+                    writer.append(prefix + "                  self.jjstate_set[self.jjnew_state_cnt] = " + name + ";").new_line();
+                    writer.append(prefix + "                  self.jjnew_state_cnt += 1;").new_line();
                 }
             }
             else if ((state.next.usefulEpsilonMoves == 2) && nextIntersects) {
-                writer.println(prefix + "                  self.jj_check_n_add_two_states("
-                    + stateNames[0] + ", " + stateNames[1] + ");");
+                writer.append(prefix + "                  self.jj_check_n_add_two_states("
+                    + stateNames[0] + ", " + stateNames[1] + ");").new_line();
             }
             else {
                 int[] indices = NfaState.GetStateSetIndicesForUse(data, state.next.epsilonMovesString);
@@ -253,16 +253,16 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                     else {
                         data.global.jjCheckNAddStatesUnaryNeeded = true;
                     }
-                    writer.println(");");
+                    writer.append(");").new_line();
                 }
                 else {
-                    writer.println(prefix + "                  self.jj_add_states(" + indices[0] + ", " + indices[1] + ");");
+                    writer.append(prefix + "                  self.jj_add_states(" + indices[0] + ", " + indices[1] + ");").new_line();
                 }
             }
         }
 
         if (hasIf)
-            writer.println("                  }");
+            writer.append("                  }").new_line();
     }
 
 
@@ -292,12 +292,12 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             int oneBit = NfaState.OnlyOneBitSet(state.asciiMoves[byteNum]);
 
             if (oneBit != -1) {
-                writer.println("                  " + (elseNeeded ? "else " : "")
-                    + "if self.cur_char == " + ((64 * byteNum) + oneBit) + " {");
+                writer.append("                  " + (elseNeeded ? "else " : "")
+                    + "if self.cur_char == " + ((64 * byteNum) + oneBit) + " {").new_line();
             }
             else {
-                writer.println("                  " + (elseNeeded ? "else " : "")
-                    + "if (" + toHexString(state.asciiMoves[byteNum]) + " & l) != 0 {");
+                writer.append("                  " + (elseNeeded ? "else " : "")
+                    + "if (" + toHexString(state.asciiMoves[byteNum]) + " & l) != 0 {").new_line();
             }
             prefix = "   ";
             hasIf = true;
@@ -305,12 +305,12 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
         if (state.kindToPrint != Integer.MAX_VALUE) {
             if (state.asciiMoves[byteNum] != 0xffffffffffffffffL) {
-                writer.println("                  {");
+                writer.append("                  {").new_line();
             }
 
-            writer.println(prefix + "                  if kind > " + state.kindToPrint + " {");
-            writer.println(prefix + "                     kind = " + state.kindToPrint + ";");
-            writer.println(prefix + "                  }");
+            writer.append(prefix + "                  if kind > " + state.kindToPrint + " {").new_line();
+            writer.append(prefix + "                     kind = " + state.kindToPrint + ";").new_line();
+            writer.append(prefix + "                  }").new_line();
         }
 
         if ((state.next != null) && (state.next.usefulEpsilonMoves > 0)) {
@@ -319,16 +319,16 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                 int name = stateNames[0];
 
                 if (nextIntersects)
-                    writer.println(prefix + "                  self.jj_check_n_add(" + name + ");");
+                    writer.append(prefix + "                  self.jj_check_n_add(" + name + ");").new_line();
                 else {
-                    writer.println(prefix + "                  self.jjstate_set[self.jjnew_state_cnt] = " + name + ";");
-                    writer.println(prefix + "                  self.jjnew_state_cnt += 1;");
+                    writer.append(prefix + "                  self.jjstate_set[self.jjnew_state_cnt] = " + name + ";").new_line();
+                    writer.append(prefix + "                  self.jjnew_state_cnt += 1;").new_line();
                 }
             }
             else if ((state.next.usefulEpsilonMoves == 2) && nextIntersects) {
-                writer.println(
+                writer.append(
                         prefix + "                  self.jj_check_n_add_two_states(" + stateNames[0] + ", "
-                                + stateNames[1] + ");");
+                                + stateNames[1] + ");").new_line();
             }
             else {
                 int[] indices = NfaState.GetStateSetIndicesForUse(data, state.next.epsilonMovesString);
@@ -343,22 +343,22 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                     else {
                         data.global.jjCheckNAddStatesUnaryNeeded = true;
                     }
-                    writer.println(");");
+                    writer.append(");").new_line();
                 }
                 else {
-                    writer.println(prefix + "                  self.jj_add_states(" + indices[0] + ", " + indices[1]
-                                    + ");");
+                    writer.append(prefix + "                  self.jj_add_states(" + indices[0] + ", " + indices[1]
+                                    + ");").new_line();
                 }
             }
         }
 
         if ((state.asciiMoves[byteNum] != 0xffffffffffffffffL) && (state.kindToPrint
                 != Integer.MAX_VALUE)) {
-            writer.println("                  }");
+            writer.append("                  }").new_line();
         }
 
         if (hasIf)
-            writer.println("                  }");
+            writer.append("                  }").new_line();
     }
 
     private void DumpNonAsciiMoveForCompositeState(SourceWriter writer, NfaStateData data,
@@ -378,13 +378,13 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             }
         }
 
-        writer.println("                  if (jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2))");
+        writer.append("                  if (jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2))").new_line();
 
         if (state.kindToPrint != Integer.MAX_VALUE) {
-            writer.println("                  {");
-            writer.println("                     if kind > " + state.kindToPrint + "{");
-            writer.println("                        kind = " + state.kindToPrint + ";");
-            writer.println("                     }");
+            writer.append("                  {").new_line();
+            writer.append("                     if kind > " + state.kindToPrint + "{").new_line();
+            writer.append("                        kind = " + state.kindToPrint + ";").new_line();
+            writer.append("                     }").new_line();
         }
 
         if ((state.next != null) && (state.next.usefulEpsilonMoves > 0)) {
@@ -392,16 +392,16 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             if (state.next.usefulEpsilonMoves == 1) {
                 int name = stateNames[0];
                 if (nextIntersects)
-                    writer.println("                     self.jj_check_n_add(" + name + ");");
+                    writer.append("                     self.jj_check_n_add(" + name + ");").new_line();
                 else {
-                    writer.println("                     self.jjstate_set[self.jjnew_state_cnt] = " + name + ";");
-                    writer.println("                     self.jjnew_state_cnt += 1;");
+                    writer.append("                     self.jjstate_set[self.jjnew_state_cnt] = " + name + ";").new_line();
+                    writer.append("                     self.jjnew_state_cnt += 1;").new_line();
                 }
             }
             else if ((state.next.usefulEpsilonMoves == 2) && nextIntersects) {
-                writer.println(
+                writer.append(
                         "                     self.jj_check_n_add_two_states(" + stateNames[0] + ", " + stateNames[1]
-                                + ");");
+                                + ");").new_line();
             }
             else {
                 int[] indices = NfaState.GetStateSetIndicesForUse(data, state.next.epsilonMovesString);
@@ -416,17 +416,17 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                     else {
                         data.global.jjCheckNAddStatesUnaryNeeded = true;
                     }
-                    writer.println(");");
+                    writer.append(");").new_line();
                 }
                 else {
-                    writer.println(
-                            "                     self.jj_add_states(" + indices[0] + ", " + indices[1] + ");");
+                    writer.append(
+                            "                     self.jj_add_states(" + indices[0] + ", " + indices[1] + ");").new_line();
                 }
             }
         }
 
         if (state.kindToPrint != Integer.MAX_VALUE) {
-            writer.println("                  }");
+            writer.append("                  }").new_line();
         }
     }
 
@@ -459,31 +459,31 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
         }
 
         if (!cases.isEmpty())
-            writer.println("               " + String.join(" | ", cases) + " => {");
+            writer.append("               " + String.join(" | ", cases) + " => {").new_line();
 
         if ((state.next == null) || (state.next.usefulEpsilonMoves <= 0)) {
             String kindCheck = " && kind > " + state.kindToPrint;
 
-            writer.println("                  if jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2)"
-                            + kindCheck + " {");
-            writer.println("                     kind = " + state.kindToPrint + ";");
-            writer.println("                  }");
+            writer.append("                  if jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2)"
+                            + kindCheck + " {").new_line();
+            writer.append("                     kind = " + state.kindToPrint + ";").new_line();
+            writer.append("                  }").new_line();
             return;
         }
 
         String prefix = "   ";
         if (state.kindToPrint != Integer.MAX_VALUE) {
-            writer.println("                  if !jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2) {");
-            writer.println("                     break;");
-            writer.println("                  }");
+            writer.append("                  if !jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2) {").new_line();
+            writer.append("                     break;").new_line();
+            writer.append("                  }").new_line();
 
-            writer.println("                  if kind > " + state.kindToPrint + " {");
-            writer.println("                     kind = " + state.kindToPrint + ";");
-            writer.println("                  }");
+            writer.append("                  if kind > " + state.kindToPrint + " {").new_line();
+            writer.append("                     kind = " + state.kindToPrint + ";").new_line();
+            writer.append("                  }").new_line();
             prefix = "";
         }
         else {
-            writer.println("                  if jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2) {");
+            writer.append("                  if jj_can_move_" + state.nonAsciiMethod + "(hi_byte, i1, i2, l1, l2) {").new_line();
         }
 
         if ((state.next != null) && (state.next.usefulEpsilonMoves > 0)) {
@@ -491,17 +491,17 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             if (state.next.usefulEpsilonMoves == 1) {
                 int name = stateNames[0];
                 if (nextIntersects) {
-                    writer.println(prefix + "                  self.jj_check_n_add(" + name + ");");
+                    writer.append(prefix + "                  self.jj_check_n_add(" + name + ");").new_line();
                 }
                 else {
-                    writer.println(prefix + "                  self.jjstate_set[self.jjnew_state_cnt] = " + name + ";");
-                    writer.println(prefix + "                  self.jjnew_state_cnt += 1;");
+                    writer.append(prefix + "                  self.jjstate_set[self.jjnew_state_cnt] = " + name + ";").new_line();
+                    writer.append(prefix + "                  self.jjnew_state_cnt += 1;").new_line();
                 }
             }
             else if ((state.next.usefulEpsilonMoves == 2) && nextIntersects) {
-                writer.println(
+                writer.append(
                         prefix + "                  self.jj_check_n_add_two_states(" + stateNames[0] + ", "
-                                + stateNames[1] + ");");
+                                + stateNames[1] + ");").new_line();
             }
             else {
                 int[] indices = NfaState.GetStateSetIndicesForUse(data, state.next.epsilonMovesString);
@@ -516,17 +516,18 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                     else {
                         data.global.jjCheckNAddStatesUnaryNeeded = true;
                     }
-                    writer.println(");");
+                    writer.append(");").new_line();
                 }
                 else {
-                    writer.println(prefix
-                        + "                  self.jj_add_states(" + indices[0] + ", " + indices[1] + ");");
+                    writer.append(prefix
+                        + "                  self.jj_add_states(" + indices[0] + ", " + indices[1] + ");")
+                        .new_line();
                 }
             }
         }
 
         if (state.kindToPrint == Integer.MAX_VALUE) {
-            writer.println("                  }");
+            writer.append("                  }").new_line();
         }
     }
 
@@ -578,8 +579,8 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
         if (neededStates == 0) {
             if ((stateForCase != null) && toPrint.equals("")) {
-                writer.println("                  break;");
-                writer.println("               }");
+                writer.append("                  break;").new_line();
+                writer.append("               }").new_line();
             }
             return;
         }
@@ -593,7 +594,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             cases.add("" + stateNameForComposite(data, key));
             if (!dumped[toBePrinted.stateName] && !stateBlock && (toBePrinted.inNextOf > 1))
                 cases.add("" + toBePrinted.stateName);
-            writer.println("               " + String.join(" | ", cases) + " => {");
+            writer.append("               " + String.join(" | ", cases) + " => {").new_line();
 
             dumped[toBePrinted.stateName] = true;
             DumpAsciiMove(writer, data, toBePrinted, byteNum, dumped, new ArrayList<>());
@@ -607,7 +608,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
         }
 
         int keyState = stateNameForComposite(data, key);
-        writer.println("               " + keyState + " => {");
+        writer.append("               " + keyState + " => {").new_line();
         if (keyState < data.generatedStates()) {
             dumped[keyState] = true;
         }
@@ -625,7 +626,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             }
         }
 
-        writer.println("               }");
+        writer.append("               }").new_line();
     }
 
     protected final void DumpAsciiMoves(SourceWriter writer, NfaStateData data, int byteNum) {
@@ -657,7 +658,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
                 if (element.asciiMoves[byteNum] == 0L) {
                     if (toPrint.equals("")) {
-                        writer.println("                  break;");
+                        writer.append("                  break;").new_line();
                     }
 
                     continue;
@@ -676,11 +677,11 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
             var cases = new ArrayList<String>();
             cases.add("" + element.stateName);
             DumpAsciiMove(writer, data, element, byteNum, dumped, cases);
-            writer.println("               }");
+            writer.append("               }").new_line();
         }
 
         if ((byteNum != 0) && (byteNum != 1))
-            writer.println("""
+            writer.append("""
                            _ => {
                               if i1 == 0 || l1 == 0 || i2 == 0 || l2 == 0 {
                                  break;
@@ -688,13 +689,13 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                                  break;
                               }
                            }
-            """);
+            """).new_line();
         else
-            writer.println("               _ => {}");
+            writer.append("               _ => {}").new_line();
 
-        writer.println("            }");
-        writer.println("            while_cond = i != starts_at;");
-        writer.println("         }");
+        writer.append("            }").new_line();
+        writer.append("            while_cond = i != starts_at;").new_line();
+        writer.append("         }").new_line();
     }
 
 
@@ -727,7 +728,7 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
                 if (temp.nonAsciiMethod == -1) {
                     if (toPrint.equals(""))
-                        writer.println("                  break;");
+                        writer.append("                  break;").new_line();
                     continue;
                 }
             }
@@ -740,12 +741,12 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
 
             dumped[temp.stateName] = true;
             // System.out.println("case : " + temp.stateName);
-            writer.println("               " + temp.stateName + " => {");
+            writer.append("               " + temp.stateName + " => {").new_line();
             DumpNonAsciiMove(writer, data, temp, dumped);
-            writer.println("               }");
+            writer.append("               }").new_line();
         }
 
-        writer.println("""
+        writer.append("""
                            _ => {
                               if i1 == 0 || l1 == 0 || i2 == 0 || l2 == 0 {
                                  break;
@@ -753,10 +754,10 @@ public abstract class LexerGeneratorRust extends LexerGenerator {
                                  break;
                               }
                            }
-            """);
-        writer.println("            }");
-        writer.println("            while_cond = i != starts_at;");
-        writer.println("         }");
+            """).new_line();
+        writer.append("            }").new_line();
+        writer.append("            while_cond = i != starts_at;").new_line();
+        writer.append("         }").new_line();
     }
 
     @Override

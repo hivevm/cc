@@ -24,7 +24,7 @@ import org.hivevm.cc.parser.RegExprSpec;
 import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.utils.Encoding;
 import org.hivevm.cc.utils.TemplateOptions;
-import org.hivevm.core.SourceWriter;
+import org.hivevm.source.SourceWriter;
 
 /**
  * Generate lexer.
@@ -122,7 +122,7 @@ class CppLexerGenerator extends LexerGenerator {
     private void DumpStaticVarDeclarations(SourceWriter writer, LexerData data) {
         if (data.maxLexStates() > 1) {
             writer.new_line();
-            writer.println("/** Lex State array. */");
+            writer.append("/** Lex State array. */").new_line();
             writer.append("static const int jjnewLexState[] = {");
 
             for (int i = 0; i < data.maxOrdinal(); i++) {
@@ -137,7 +137,7 @@ class CppLexerGenerator extends LexerGenerator {
                     writer.append(data.getStateIndex(data.newLexState(i)) + ", ");
                 }
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
 
         if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
@@ -149,7 +149,7 @@ class CppLexerGenerator extends LexerGenerator {
                 }
                 writer.append(toHexString(data.toToken(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
 
         if (data.hasSkip() || data.hasSpecial()) {
@@ -161,7 +161,7 @@ class CppLexerGenerator extends LexerGenerator {
                 }
                 writer.append(toHexString(data.toSkip(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
 
         if (data.hasSpecial()) {
@@ -173,7 +173,7 @@ class CppLexerGenerator extends LexerGenerator {
                 }
                 writer.append(toHexString(data.toSpecial(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
 
         if (data.hasMore()) {
@@ -185,31 +185,31 @@ class CppLexerGenerator extends LexerGenerator {
                 }
                 writer.append(toHexString(data.toMore(i)) + ", ");
             }
-            writer.println("\n};");
+            writer.append("\n};").new_line();
         }
     }
 
     private void DumpGetNextToken(SourceWriter writer, LexerData data) {
         if ((data.getNextStateForEof() != null) || (data.getActionForEof() != null)) {
-            writer.println("      TokenLexicalActions(matchedToken);");
+            writer.append("      TokenLexicalActions(matchedToken);").new_line();
         }
 
-        writer.println("      return matchedToken;");
-        writer.println("   }");
-        writer.println("   curChar = reader->beginToken();");
+        writer.append("      return matchedToken;").new_line();
+        writer.append("   }").new_line();
+        writer.append("   curChar = reader->beginToken();").new_line();
 
         if (data.hasMoreActions() || data.hasSkipActions() || data.hasTokenActions()) {
-            writer.println("   image = jjimage;");
-            writer.println("   image.clear();");
-            writer.println("   jjimageLen = 0;");
+            writer.append("   image = jjimage;").new_line();
+            writer.append("   image.clear();").new_line();
+            writer.append("   jjimageLen = 0;").new_line();
         }
 
-        writer.println("");
+        writer.new_line();
 
         String prefix = "";
         if (data.hasMore()) {
-            writer.println("   for (;;)");
-            writer.println("   {");
+            writer.append("   for (;;)").new_line();
+            writer.append("   {").new_line();
             prefix = "  ";
         }
 
@@ -217,8 +217,8 @@ class CppLexerGenerator extends LexerGenerator {
         String caseStr = "";
         // this also sets up the start state of the nfa
         if (data.maxLexStates() > 1) {
-            writer.println(prefix + "   switch(curLexState)");
-            writer.println(prefix + "   {");
+            writer.append(prefix + "   switch(curLexState)").new_line();
+            writer.append(prefix + "   {").new_line();
             endSwitch = prefix + "   }";
             caseStr = prefix + "     case ";
             prefix += "    ";
@@ -227,113 +227,104 @@ class CppLexerGenerator extends LexerGenerator {
         prefix += "   ";
         for (int i = 0; i < data.maxLexStates(); i++) {
             if (data.maxLexStates() > 1) {
-                writer.println(caseStr + i + ":");
+                writer.append(caseStr + i + ":").new_line();
             }
 
             if (data.singlesToSkip(i).HasTransitions()) {
                 // added the backup(0) to make JIT happy
-                writer.println(prefix + "{ reader->backup(0);");
+                writer.append(prefix + "{ reader->backup(0);").new_line();
                 if ((data.singlesToSkip(i).asciiMoves[0] != 0L) && (data.singlesToSkip(i).asciiMoves[1]
                         != 0L)) {
-                    writer.println(
+                    writer.append(
                             prefix + "   while ((curChar < 64" + " && (" + Long.toHexString(
                                     data.singlesToSkip(i).asciiMoves[0])
                                     + " & (1L << curChar)) != 0L) || \n" + prefix + "          (curChar >> 6) == 1"
                                     + " && ("
                                     + toHexString(data.singlesToSkip(i).asciiMoves[1])
-                                    + " & (1L << (curChar & 077))) != 0L)");
+                                    + " & (1L << (curChar & 077))) != 0L)").new_line();
                 }
                 else if (data.singlesToSkip(i).asciiMoves[1] == 0L) {
-                    writer.println(
+                    writer.append(
                             prefix + "   while (curChar <= " + (int) LexerGenerator.MaxChar(
                                     data.singlesToSkip(i).asciiMoves[0])
                                     + " && (" + toHexString(data.singlesToSkip(i).asciiMoves[0])
-                                    + " & (1L << curChar)) != 0L)");
+                                    + " & (1L << curChar)) != 0L)").new_line();
                 }
                 else if (data.singlesToSkip(i).asciiMoves[0] == 0L) {
-                    writer.println(prefix + "   while (curChar > 63 && curChar <= "
+                    writer.append(prefix + "   while (curChar > 63 && curChar <= "
                             + (LexerGenerator.MaxChar(data.singlesToSkip(i).asciiMoves[1]) + 64) + " && ("
                             + toHexString(data.singlesToSkip(i).asciiMoves[1])
-                            + " & (1L << (curChar & 077))) != 0L)");
+                            + " & (1L << (curChar & 077))) != 0L)").new_line();
                 }
 
-                writer.println(prefix + "{");
+                writer.append(prefix + "{").new_line();
                 if (data.options().getDebugTokenManager()) {
                     if (data.maxLexStates() > 1) {
-                        writer.println(
-                                "      fprintf(debugStream, \"<%s>\" , addUnicodeEscapes(lexStateNames[curLexState]).c_str());");
+                        writer.append("      fprintf(debugStream, \"<%s>\" , addUnicodeEscapes(lexStateNames[curLexState]).c_str());").new_line();
                     }
 
-                    writer.println(
-                            "      fprintf(debugStream, \"Skipping character : %c(%d)\\n\", curChar, (int)curChar);");
+                    writer.append("      fprintf(debugStream, \"Skipping character : %c(%d)\\n\", curChar, (int)curChar);").new_line();
                 }
 
-                writer.println(prefix + "if (reader->endOfInput()) { goto EOFLoop; }");
-                writer.println(prefix + "curChar = reader->beginToken();");
-                writer.println(prefix + "}");
-                writer.println(prefix + "}");
+                writer.append(prefix + "if (reader->endOfInput()) { goto EOFLoop; }").new_line();
+                writer.append(prefix + "curChar = reader->beginToken();").new_line();
+                writer.append(prefix + "}").new_line();
+                writer.append(prefix + "}").new_line();
             }
 
             if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
                 if (data.options().getDebugTokenManager()) {
-                    writer.println(
-                            "      fprintf(debugStream, \"   Matched the empty string as %s token.\\n\", addUnicodeEscapes(tokenImage["
-                                    + data.initMatch(i) + "]).c_str());");
+                    writer.append("      fprintf(debugStream, \"   Matched the empty string as %s token.\\n\", addUnicodeEscapes(tokenImage[" + data.initMatch(i) + "]).c_str());").new_line();
                 }
 
-                writer.println(prefix + "jjmatchedKind = " + data.initMatch(i) + ";");
-                writer.println(prefix + "jjmatchedPos = -1;");
-                writer.println(prefix + "curPos = 0;");
+                writer.append(prefix + "jjmatchedKind = " + data.initMatch(i) + ";").new_line();
+                writer.append(prefix + "jjmatchedPos = -1;").new_line();
+                writer.append(prefix + "curPos = 0;").new_line();
             }
             else {
-                writer.println(
-                        prefix + "jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-                writer.println(prefix + "jjmatchedPos = 0;");
+                writer.append(prefix + "jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
+                writer.append(prefix + "jjmatchedPos = 0;").new_line();
             }
 
             if (data.options().getDebugTokenManager()) {
-                writer.println("   fprintf(debugStream, "
+                writer.append("   fprintf(debugStream, "
                         + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
                         + "addUnicodeEscapes(lexStateNames[curLexState]).c_str(), curChar, (int)curChar, "
-                        + "reader->getEndLine(), reader->getEndColumn());");
+                        + "reader->getEndLine(), reader->getEndColumn());").new_line();
             }
 
-            writer.println(prefix + "curPos = jjMoveStringLiteralDfa0_" + i + "();");
+            writer.append(prefix + "curPos = jjMoveStringLiteralDfa0_" + i + "();").new_line();
             if (data.canMatchAnyChar(i) != -1) {
                 if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
-                    writer.println(prefix + "if (jjmatchedPos < 0 || (jjmatchedPos == 0 && jjmatchedKind > "
-                            + data.canMatchAnyChar(i) + "))");
+                    writer.append(prefix + "if (jjmatchedPos < 0 || (jjmatchedPos == 0 && jjmatchedKind > "  + data.canMatchAnyChar(i) + "))").new_line();
                 }
                 else {
-                    writer.println(
-                            prefix + "if (jjmatchedPos == 0 && jjmatchedKind > " + data.canMatchAnyChar(i) + ")");
+                    writer.append(prefix + "if (jjmatchedPos == 0 && jjmatchedKind > " + data.canMatchAnyChar(i) + ")").new_line();
                 }
-                writer.println(prefix + "{");
+                writer.append(prefix + "{").new_line();
 
                 if (data.options().getDebugTokenManager()) {
-                    writer.println(
-                            "           fprintf(debugStream, \"   Current character matched as a %s token.\\n\", addUnicodeEscapes(tokenImage["
-                                    + data.canMatchAnyChar(i) + "]).c_str());");
+                    writer.append("           fprintf(debugStream, \"   Current character matched as a %s token.\\n\", addUnicodeEscapes(tokenImage[" + data.canMatchAnyChar(i) + "]).c_str());").new_line();
                 }
-                writer.println(prefix + "   jjmatchedKind = " + data.canMatchAnyChar(i) + ";");
+                writer.append(prefix + "   jjmatchedKind = " + data.canMatchAnyChar(i) + ";").new_line();
 
                 if ((data.initMatch(i) != Integer.MAX_VALUE) && (data.initMatch(i) != 0)) {
-                    writer.println(prefix + "   jjmatchedPos = 0;");
+                    writer.append(prefix + "   jjmatchedPos = 0;").new_line();
                 }
 
-                writer.println(prefix + "}");
+                writer.append(prefix + "}").new_line();
             }
 
             if (data.maxLexStates() > 1) {
-                writer.println(prefix + "break;");
+                writer.append(prefix + "break;").new_line();
             }
         }
 
         if (data.maxLexStates() > 1) {
-            writer.println(endSwitch);
+            writer.append(endSwitch).new_line();
         }
         else if (data.maxLexStates() == 0) {
-            writer.println("       jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+            writer.append("       jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
         }
 
         if (data.maxLexStates() > 1) {
@@ -344,134 +335,124 @@ class CppLexerGenerator extends LexerGenerator {
         }
 
         if (data.maxLexStates() > 0) {
-            writer.println(
-                    prefix + "   if (jjmatchedKind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")");
-            writer.println(prefix + "   {");
-            writer.println(prefix + "      if (jjmatchedPos + 1 < curPos)");
+            writer.append(prefix + "   if (jjmatchedKind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")").new_line();
+            writer.append(prefix + "   {").new_line();
+            writer.append(prefix + "      if (jjmatchedPos + 1 < curPos)").new_line();
 
             if (data.options().getDebugTokenManager()) {
-                writer.println(prefix + "      {");
-                writer.println(prefix + "         fprintf(debugStream, "
-                        + "\"   Putting back %d characters into the input stream.\\n\", (curPos - jjmatchedPos - 1));");
+                writer.append(prefix + "      {").new_line();
+                writer.append(prefix + "         fprintf(debugStream, " + "\"   Putting back %d characters into the input stream.\\n\", (curPos - jjmatchedPos - 1));").new_line();
             }
 
-            writer.println(prefix + "         reader->backup(curPos - jjmatchedPos - 1);");
+            writer.append(prefix + "         reader->backup(curPos - jjmatchedPos - 1);").new_line();
 
             if (data.options().getDebugTokenManager()) {
-                writer.println(prefix + "      }");
+                writer.append(prefix + "      }").new_line();
             }
 
             if (data.options().getDebugTokenManager()) {
-                writer.println("    fprintf(debugStream, "
-                        + "\"****** FOUND A %d(%s) MATCH (%s) ******\\n\", jjmatchedKind, addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str(), addUnicodeEscapes(reader->GetSuffix(jjmatchedPos + 1)).c_str());");
+                writer.append("    fprintf(debugStream, \"****** FOUND A %d(%s) MATCH (%s) ******\\n\", jjmatchedKind, addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str(), addUnicodeEscapes(reader->GetSuffix(jjmatchedPos + 1)).c_str());").new_line();
             }
 
             if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
-                writer.println(
-                        prefix + "      if ((jjtoToken[jjmatchedKind >> 6] & "
-                                + "(1ULL << (jjmatchedKind & 077))) != 0L)");
-                writer.println(prefix + "      {");
+                writer.append(prefix + "      if ((jjtoToken[jjmatchedKind >> 6] & " + "(1ULL << (jjmatchedKind & 077))) != 0L)").new_line();
+                writer.append(prefix + "      {").new_line();
             }
 
-            writer.println(prefix + "         matchedToken = jjFillToken();");
+            writer.append(prefix + "         matchedToken = jjFillToken();").new_line();
 
             if (data.hasSpecial()) {
-                writer.println(prefix + "         matchedToken->specialToken = specialToken;");
+                writer.append(prefix + "         matchedToken->specialToken = specialToken;").new_line();
             }
 
             if (data.hasTokenActions()) {
-                writer.println(prefix + "         TokenLexicalActions(matchedToken);");
+                writer.append(prefix + "         TokenLexicalActions(matchedToken);").new_line();
             }
 
             if (data.maxLexStates() > 1) {
-                writer.println("       if (jjnewLexState[jjmatchedKind] != -1)");
-                writer.println(prefix + "       curLexState = jjnewLexState[jjmatchedKind];");
+                writer.append("       if (jjnewLexState[jjmatchedKind] != -1)").new_line();
+                writer.append(prefix + "       curLexState = jjnewLexState[jjmatchedKind];").new_line();
             }
 
-            writer.println(prefix + "         return matchedToken;");
+            writer.append(prefix + "         return matchedToken;").new_line();
 
             if (data.hasSkip() || data.hasMore() || data.hasSpecial()) {
-                writer.println(prefix + "      }");
+                writer.append(prefix + "      }").new_line();
 
                 if (data.hasSkip() || data.hasSpecial()) {
                     if (data.hasMore()) {
-                        writer.println(
-                                prefix + "      else if ((jjtoSkip[jjmatchedKind >> 6] & "
-                                        + "(1L << (jjmatchedKind & 077))) != 0L)");
+                        writer.append(prefix + "      else if ((jjtoSkip[jjmatchedKind >> 6] & (1L << (jjmatchedKind & 077))) != 0L)").new_line();
                     }
                     else {
-                        writer.println(prefix + "      else");
+                        writer.append(prefix + "      else").new_line();
                     }
 
-                    writer.println(prefix + "      {");
+                    writer.append(prefix + "      {").new_line();
 
                     if (data.hasSpecial()) {
-                        writer.println(prefix + "         if ((jjtoSpecial[jjmatchedKind >> 6] & "
-                                + "(1ULL << (jjmatchedKind & 077))) != 0L)");
-                        writer.println(prefix + "         {");
+                        writer.append(prefix + "         if ((jjtoSpecial[jjmatchedKind >> 6] & " + "(1ULL << (jjmatchedKind & 077))) != 0L)").new_line();
+                        writer.append(prefix + "         {").new_line();
 
-                        writer.println(prefix + "            matchedToken = jjFillToken();");
+                        writer.append(prefix + "            matchedToken = jjFillToken();").new_line();
 
-                        writer.println(prefix + "            if (specialToken == nullptr)");
-                        writer.println(prefix + "               specialToken = matchedToken;");
-                        writer.println(prefix + "            else");
-                        writer.println(prefix + "            {");
-                        writer.println(prefix + "               matchedToken->specialToken = specialToken;");
-                        writer.println(
-                                prefix + "               specialToken = (specialToken->next = matchedToken);");
-                        writer.println(prefix + "            }");
+                        writer.append(prefix + "            if (specialToken == nullptr)").new_line();
+                        writer.append(prefix + "               specialToken = matchedToken;").new_line();
+                        writer.append(prefix + "            else").new_line();
+                        writer.append(prefix + "            {").new_line();
+                        writer.append(prefix + "               matchedToken->specialToken = specialToken;").new_line();
+                        writer.append(prefix + "               specialToken = (specialToken->next = matchedToken);").new_line();
+                        writer.append(prefix + "            }").new_line();
 
                         if (data.hasSkipActions()) {
-                            writer.println(prefix + "            SkipLexicalActions(matchedToken);");
+                            writer.append(prefix + "            SkipLexicalActions(matchedToken);").new_line();
                         }
 
-                        writer.println(prefix + "         }");
+                        writer.append(prefix + "         }").new_line();
 
                         if (data.hasSkipActions()) {
-                            writer.println(prefix + "         else");
-                            writer.println(prefix + "            SkipLexicalActions(nullptr);");
+                            writer.append(prefix + "         else").new_line();
+                            writer.append(prefix + "            SkipLexicalActions(nullptr);").new_line();
                         }
                     }
                     else if (data.hasSkipActions()) {
-                        writer.println(prefix + "         SkipLexicalActions(nullptr);");
+                        writer.append(prefix + "         SkipLexicalActions(nullptr);").new_line();
                     }
 
                     if (data.maxLexStates() > 1) {
-                        writer.println("         if (jjnewLexState[jjmatchedKind] != -1)");
-                        writer.println(prefix + "         curLexState = jjnewLexState[jjmatchedKind];");
+                        writer.append("         if (jjnewLexState[jjmatchedKind] != -1)").new_line();
+                        writer.append(prefix + "         curLexState = jjnewLexState[jjmatchedKind];").new_line();
                     }
 
-                    writer.println(prefix + "         goto EOFLoop;");
-                    writer.println(prefix + "      }");
+                    writer.append(prefix + "         goto EOFLoop;").new_line();
+                    writer.append(prefix + "      }").new_line();
                 }
 
                 if (data.hasMore()) {
                     if (data.hasMoreActions()) {
-                        writer.println(prefix + "      MoreLexicalActions();");
+                        writer.append(prefix + "      MoreLexicalActions();").new_line();
                     }
                     else if (data.hasSkipActions() || data.hasTokenActions()) {
-                        writer.println(prefix + "      jjimageLen += jjmatchedPos + 1;");
+                        writer.append(prefix + "      jjimageLen += jjmatchedPos + 1;").new_line();
                     }
 
                     if (data.maxLexStates() > 1) {
-                        writer.println("      if (jjnewLexState[jjmatchedKind] != -1)");
-                        writer.println(prefix + "      curLexState = jjnewLexState[jjmatchedKind];");
+                        writer.append("      if (jjnewLexState[jjmatchedKind] != -1)").new_line();
+                        writer.append(prefix + "      curLexState = jjnewLexState[jjmatchedKind];").new_line();
                     }
-                    writer.println(prefix + "      curPos = 0;");
-                    writer.println(
-                            prefix + "      jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
+                    writer.append(prefix + "      curPos = 0;").new_line();
+                    writer.append(prefix + "      jjmatchedKind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
 
-                    writer.println(prefix + "   if (!reader->endOfInput()) {");
-                    writer.println(prefix + "         curChar = reader->read(); // UTF8: Support Unicode");
+                    writer.append(prefix + "   if (!reader->endOfInput()) {").new_line();
+                    writer.append(prefix + "         curChar = reader->read(); // UTF8: Support Unicode").new_line();
 
                     if (data.options().getDebugTokenManager()) {
-                        writer.println("   fprintf(debugStream, "
+                        writer.append("   fprintf(debugStream, "
                                 + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
                                 + "addUnicodeEscapes(lexStateNames[curLexState]).c_str(), curChar, (int)curChar, "
-                                + "reader->getEndLine(), reader->getEndColumn());");
+                                + "reader->getEndLine(), reader->getEndColumn());").new_line();
                     }
-                    writer.println(prefix + "   continue;");
-                    writer.println(prefix + " }");
+                    writer.append(prefix + "   continue;").new_line();
+                    writer.append(prefix + " }").new_line();
                 }
             }
         }
@@ -481,9 +462,9 @@ class CppLexerGenerator extends LexerGenerator {
         writer.append(
                 "\nvoid " + data.getParserName() + "TokenManager::SkipLexicalActions(Token *matchedToken)");
 
-        writer.println("{");
-        writer.println("   switch(jjmatchedKind)");
-        writer.println("   {");
+        writer.append("{").new_line();
+        writer.append("   switch(jjmatchedKind)").new_line();
+        writer.append("   {").new_line();
 
         Outer:
         for (int i = 0; i < data.maxOrdinal(); i++) {
@@ -497,24 +478,19 @@ class CppLexerGenerator extends LexerGenerator {
                     continue Outer;
                 }
 
-                writer.println("      case " + i + " : {");
+                writer.append("      case " + i + " : {").new_line();
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatchedPos == -1)");
-                    writer.println("         {");
-                    writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
-                    writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == reader->getBeginLine() &&");
-                    writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == reader->getBeginColumn())");
-                    writer.println(
-                            "               errorHandler->lexicalError(JJString(\"(\"Error: Bailing out of infinite loop caused by repeated empty string matches \" + \"at line \" + reader->getBeginLine() + \", \" + \"column \" + reader->getBeginColumn() + \".\")), this);");
-                    writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = reader->getBeginLine();");
-                    writer.println(
-                            "            jjemptyColNo[" + data.getState(i) + "] = reader->getBeginColumn();");
-                    writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
-                    writer.println("         }");
+                    writer.append("         if (jjmatchedPos == -1)").new_line();
+                    writer.append("         {").new_line();
+                    writer.append("            if (jjbeenHere[" + data.getState(i) + "] &&").new_line();
+                    writer.append("                jjemptyLineNo[" + data.getState(i) + "] == reader->getBeginLine() &&").new_line();
+                    writer.append("                jjemptyColNo[" + data.getState(i) + "] == reader->getBeginColumn())").new_line();
+                    writer.append("               errorHandler->lexicalError(JJString(\"(\"Error: Bailing out of infinite loop caused by repeated empty string matches \" + \"at line \" + reader->getBeginLine() + \", \" + \"column \" + reader->getBeginColumn() + \".\")), this);").new_line();
+                    writer.append("            jjemptyLineNo[" + data.getState(i) + "] = reader->getBeginLine();").new_line();
+                    writer.append("            jjemptyColNo[" + data.getState(i) + "] = reader->getBeginColumn();").new_line();
+                    writer.append("            jjbeenHere[" + data.getState(i) + "] = true;").new_line();
+                    writer.append("         }").new_line();
                 }
 
                 if (((act = data.actions(i)) == null) || act.getActionTokens().isEmpty()) {
@@ -523,11 +499,11 @@ class CppLexerGenerator extends LexerGenerator {
 
                 writer.append("         image.append");
                 if (data.getImage(i) != null) {
-                    writer.println("(jjstrLiteralImages[" + i + "]);");
-                    writer.println("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();");
+                    writer.append("(jjstrLiteralImages[" + i + "]);").new_line();
+                    writer.append("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();").new_line();
                 }
                 else {
-                    writer.println("(reader->GetSuffix(jjimageLen + (lengthOfMatch = jjmatchedPos + 1)));");
+                    writer.append("(reader->GetSuffix(jjimageLen + (lengthOfMatch = jjmatchedPos + 1)));").new_line();
                 }
 
                 genTokenSetup(act.getActionTokens().getFirst());
@@ -536,27 +512,27 @@ class CppLexerGenerator extends LexerGenerator {
                 for (Token element : act.getActionTokens()) {
                     genToken(writer, element);
                 }
-                writer.println("");
+                writer.new_line();
 
                 break;
             }
 
-            writer.println("         break;");
-            writer.println("       }");
+            writer.append("         break;").new_line();
+            writer.append("       }").new_line();
         }
 
-        writer.println("      default :");
-        writer.println("         break;");
-        writer.println("   }");
-        writer.println("}");
+        writer.append("      default :").new_line();
+        writer.append("         break;").new_line();
+        writer.append("   }").new_line();
+        writer.append("}").new_line();
     }
 
     private void DumpMoreActions(SourceWriter writer, LexerData data) {
         writer.append("\nvoid " + data.getParserName() + "TokenManager::MoreLexicalActions()");
-        writer.println("{");
-        writer.println("   jjimageLen += (lengthOfMatch = jjmatchedPos + 1);");
-        writer.println("   switch(jjmatchedKind)");
-        writer.println("   {");
+        writer.append("{").new_line();
+        writer.append("   jjimageLen += (lengthOfMatch = jjmatchedPos + 1);").new_line();
+        writer.append("   switch(jjmatchedKind)").new_line();
+        writer.append("   {").new_line();
 
         Outer:
         for (int i = 0; i < data.maxOrdinal(); i++) {
@@ -570,24 +546,19 @@ class CppLexerGenerator extends LexerGenerator {
                     continue Outer;
                 }
 
-                writer.println("      case " + i + " : {");
+                writer.append("      case " + i + " : {").new_line();
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatchedPos == -1)");
-                    writer.println("         {");
-                    writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
-                    writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == reader->getBeginLine() &&");
-                    writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == reader->getBeginColumn())");
-                    writer.println(
-                            "               errorHandler->lexicalError(JJString(\"(\"Error: Bailing out of infinite loop caused by repeated empty string matches \" + \"at line \" + reader->getBeginLine() + \", \" + \"column \" + reader->getBeginColumn() + \".\")), this);");
-                    writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = reader->getBeginLine();");
-                    writer.println(
-                            "            jjemptyColNo[" + data.getState(i) + "] = reader->getBeginColumn();");
-                    writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
-                    writer.println("         }");
+                    writer.append("         if (jjmatchedPos == -1)").new_line();
+                    writer.append("         {").new_line();
+                    writer.append("            if (jjbeenHere[" + data.getState(i) + "] &&").new_line();
+                    writer.append("                jjemptyLineNo[" + data.getState(i) + "] == reader->getBeginLine() &&").new_line();
+                    writer.append("                jjemptyColNo[" + data.getState(i) + "] == reader->getBeginColumn())").new_line();
+                    writer.append("               errorHandler->lexicalError(JJString(\"(\"Error: Bailing out of infinite loop caused by repeated empty string matches \" + \"at line \" + reader->getBeginLine() + \", \" + \"column \" + reader->getBeginColumn() + \".\")), this);").new_line();
+                    writer.append("            jjemptyLineNo[" + data.getState(i) + "] = reader->getBeginLine();").new_line();
+                    writer.append("            jjemptyColNo[" + data.getState(i) + "] = reader->getBeginColumn();").new_line();
+                    writer.append("            jjbeenHere[" + data.getState(i) + "] = true;").new_line();
+                    writer.append("         }").new_line();
                 }
 
                 if (((act = data.actions(i)) == null) || act.getActionTokens().isEmpty()) {
@@ -597,33 +568,33 @@ class CppLexerGenerator extends LexerGenerator {
                 writer.append("         image.append");
 
                 if (data.getImage(i) != null) {
-                    writer.println("(jjstrLiteralImages[" + i + "]);");
+                    writer.append("(jjstrLiteralImages[" + i + "]);").new_line();
                 }
                 else {
-                    writer.println("(reader->GetSuffix(jjimageLen));");
+                    writer.append("(reader->GetSuffix(jjimageLen));").new_line();
                 }
 
-                writer.println("         jjimageLen = 0;");
+                writer.append("         jjimageLen = 0;").new_line();
                 genTokenSetup(act.getActionTokens().getFirst());
                 resetColumn();
 
                 for (Token element : act.getActionTokens()) {
                     genToken(writer, element);
                 }
-                writer.println("");
+                writer.new_line();
 
                 break;
             }
 
-            writer.println("         break;");
-            writer.println("       }");
+            writer.append("         break;").new_line();
+            writer.append("       }").new_line();
         }
 
-        writer.println("      default :");
-        writer.println("         break;");
+        writer.append("      default :").new_line();
+        writer.append("         break;").new_line();
 
-        writer.println("   }");
-        writer.println("}");
+        writer.append("   }").new_line();
+        writer.append("}").new_line();
     }
 
     private void DumpTokenActions(SourceWriter writer, LexerData data) {
@@ -631,9 +602,9 @@ class CppLexerGenerator extends LexerGenerator {
         int i;
         writer.append("\nvoid " + data.getParserName()
                 + "TokenManager::TokenLexicalActions(Token *matchedToken)");
-        writer.println("{");
-        writer.println("   switch(jjmatchedKind)");
-        writer.println("   {");
+        writer.append("{").new_line();
+        writer.append("   switch(jjmatchedKind)").new_line();
+        writer.append("   {").new_line();
 
         Outer:
         for (i = 0; i < data.maxOrdinal(); i++) {
@@ -647,26 +618,21 @@ class CppLexerGenerator extends LexerGenerator {
                     continue Outer;
                 }
 
-                writer.println("      case " + i + " : {");
+                writer.append("      case " + i + " : {").new_line();
 
                 if ((data.initMatch(data.getState(i)) == i) && data.canLoop(data.getState(i))) {
-                    writer.println("         if (jjmatchedPos == -1)");
-                    writer.println("         {");
-                    writer.println("            if (jjbeenHere[" + data.getState(i) + "] &&");
-                    writer.println("                jjemptyLineNo[" + data.getState(i)
-                            + "] == reader->getBeginLine() &&");
-                    writer.println("                jjemptyColNo[" + data.getState(i)
-                            + "] == reader->getBeginColumn())");
-                    writer.println(
-                            "               errorHandler->lexicalError(JJString(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
+                    writer.append("         if (jjmatchedPos == -1)").new_line();
+                    writer.append("         {").new_line();
+                    writer.append("            if (jjbeenHere[" + data.getState(i) + "] &&").new_line();
+                    writer.append("                jjemptyLineNo[" + data.getState(i) + "] == reader->getBeginLine() &&").new_line();
+                    writer.append("                jjemptyColNo[" + data.getState(i) + "] == reader->getBeginColumn())").new_line();
+                    writer.append("               errorHandler->lexicalError(JJString(\"Error: Bailing out of infinite loop caused by repeated empty string matches "
                                     + "at line \" + reader->getBeginLine() + \", "
-                                    + "column \" + reader->getBeginColumn() + \".\"), this);");
-                    writer.println(
-                            "            jjemptyLineNo[" + data.getState(i) + "] = reader->getBeginLine();");
-                    writer.println(
-                            "            jjemptyColNo[" + data.getState(i) + "] = reader->getBeginColumn();");
-                    writer.println("            jjbeenHere[" + data.getState(i) + "] = true;");
-                    writer.println("         }");
+                                    + "column \" + reader->getBeginColumn() + \".\"), this);").new_line();
+                    writer.append("            jjemptyLineNo[" + data.getState(i) + "] = reader->getBeginLine();").new_line();
+                    writer.append("            jjemptyColNo[" + data.getState(i) + "] = reader->getBeginColumn();").new_line();
+                    writer.append("            jjbeenHere[" + data.getState(i) + "] = true;").new_line();
+                    writer.append("         }").new_line();
                 }
 
                 if (((act = data.actions(i)) == null) || act.getActionTokens().isEmpty()) {
@@ -674,17 +640,17 @@ class CppLexerGenerator extends LexerGenerator {
                 }
 
                 if (i == 0) {
-                    writer.println("      image.setLength(0);"); // For EOF no image is there
+                    writer.append("      image.setLength(0);").new_line(); // For EOF no image is there
                 }
                 else {
                     writer.append("        image.append");
 
                     if (data.getImage(i) != null) {
-                        writer.println("(jjstrLiteralImages[" + i + "]);");
-                        writer.println("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();");
+                        writer.append("(jjstrLiteralImages[" + i + "]);").new_line();
+                        writer.append("        lengthOfMatch = jjstrLiteralImages[" + i + "].length();").new_line();
                     }
                     else {
-                        writer.println("(reader->GetSuffix(jjimageLen + (lengthOfMatch = jjmatchedPos + 1)));");
+                        writer.append("(reader->GetSuffix(jjimageLen + (lengthOfMatch = jjmatchedPos + 1)));").new_line();
                     }
                 }
 
@@ -694,19 +660,19 @@ class CppLexerGenerator extends LexerGenerator {
                 for (Token element : act.getActionTokens()) {
                     genToken(writer, element);
                 }
-                writer.println("");
+                writer.new_line();
 
                 break;
             }
 
-            writer.println("         break;");
-            writer.println("       }");
+            writer.append("         break;").new_line();
+            writer.append("       }").new_line();
         }
 
-        writer.println("      default :");
-        writer.println("         break;");
-        writer.println("   }");
-        writer.println("}");
+        writer.append("      default :").new_line();
+        writer.append("         break;").new_line();
+        writer.append("   }").new_line();
+        writer.append("}").new_line();
     }
 
     private void DumpStatesForKind(SourceWriter writer, LexerData data) {
@@ -717,21 +683,21 @@ class CppLexerGenerator extends LexerGenerator {
                 + "] = ");
 
         if (data.getKinds() == null) {
-            writer.println("null;");
+            writer.append("null;").new_line();
             return;
         }
         else {
-            writer.println("{");
+            writer.append("{").new_line();
         }
 
         for (int[] kind : data.getKinds()) {
             if (moreThanOne) {
-                writer.println(",");
+                writer.append(",").new_line();
             }
             moreThanOne = true;
 
             if (kind == null) {
-                writer.println("{}");
+                writer.append("{}").new_line();
             }
             else {
                 cnt = 0;
@@ -752,7 +718,7 @@ class CppLexerGenerator extends LexerGenerator {
                 writer.append("}");
             }
         }
-        writer.println("\n};");
+        writer.append("\n};").new_line();
     }
 
     private void DumpStatesForStateCPP(SourceWriter writer, LexerData data) {
@@ -771,7 +737,7 @@ class CppLexerGenerator extends LexerGenerator {
 
                 writer.append("const int stateSet_" + i + "_" + j + "[" + data.stateSetSize() + "] = ");
                 if (stateSet == null) {
-                    writer.println("   { " + j + " };");
+                    writer.append("   { " + j + " };").new_line();
                     continue;
                 }
 
@@ -781,30 +747,30 @@ class CppLexerGenerator extends LexerGenerator {
                     writer.append(element + ", ");
                 }
 
-                writer.println("};");
+                writer.append("};").new_line();
             }
         }
 
         for (int i = 0; i < data.maxLexStates(); i++) {
-            writer.println("const int *stateSet_" + i + "[] = {");
+            writer.append("const int *stateSet_" + i + "[] = {").new_line();
             if (data.getStatesForState()[i] == null) {
-                writer.println(" NULL, ");
-                writer.println("};");
+                writer.append(" NULL, ").new_line();
+                writer.append("};").new_line();
                 continue;
             }
 
             for (int j = 0; j < data.getStatesForState()[i].length; j++) {
                 writer.append("stateSet_" + i + "_" + j + ",");
             }
-            writer.println("};");
+            writer.append("};").new_line();
         }
 
         writer.append("const int** statesForState[] = { ");
         for (int i = 0; i < data.maxLexStates(); i++) {
-            writer.println("stateSet_" + i + ", ");
+            writer.append("stateSet_" + i + ", ").new_line();
         }
 
-        writer.println("\n};");
+        writer.append("\n};").new_line();
     }
 
     private void DumpStateSets(SourceWriter writer, LexerData data) {
@@ -826,7 +792,7 @@ class CppLexerGenerator extends LexerGenerator {
             writer.append("0");
         }
 
-        writer.println("\n};");
+        writer.append("\n};").new_line();
     }
 
     private void DumpStrLiteralImages(SourceWriter writer, LexerData data) {
@@ -838,7 +804,7 @@ class CppLexerGenerator extends LexerGenerator {
         int literalCount = 0;
 
         if (data.getImageCount() <= 0) {
-            writer.println("static const JJString jjstrLiteralImages[] = {};");
+            writer.append("static const JJString jjstrLiteralImages[] = {};").new_line();
             return;
         }
 
@@ -856,11 +822,11 @@ class CppLexerGenerator extends LexerGenerator {
                             || !image.equals(image.toUpperCase(Locale.ENGLISH))))) {
                 data.setImage(i, null);
                 if ((charCnt += 6) > 80) {
-                    writer.println("");
+                    writer.new_line();
                     charCnt = 0;
                 }
 
-                writer.println("static JJChar jjstrLiteralChars_" + literalCount++ + "[] = {0};");
+                writer.append("static JJChar jjstrLiteralChars_" + literalCount++ + "[] = {0};").new_line();
                 continue;
             }
 
@@ -874,28 +840,28 @@ class CppLexerGenerator extends LexerGenerator {
             toPrint += "0};";
 
             if ((charCnt += toPrint.length()) >= 80) {
-                writer.println("");
+                writer.new_line();
                 charCnt = 0;
             }
 
-            writer.println(toPrint);
+            writer.append(toPrint).new_line();
         }
 
         while (++i < data.maxOrdinal()) {
             if ((charCnt += 6) > 80) {
-                writer.println("");
+                writer.new_line();
                 charCnt = 0;
             }
 
-            writer.println("static JJChar jjstrLiteralChars_" + literalCount++ + "[] = {0};");
+            writer.append("static JJChar jjstrLiteralChars_" + literalCount++ + "[] = {0};").new_line();
         }
 
         // Generate the array here.
-        writer.println("static const JJString " + "jjstrLiteralImages[] = {");
+        writer.append("static const JJString " + "jjstrLiteralImages[] = {").new_line();
         for (int j = 0; j < literalCount; j++) {
-            writer.println("jjstrLiteralChars_" + j + ", ");
+            writer.append("jjstrLiteralChars_" + j + ", ").new_line();
         }
-        writer.println("};");
+        writer.append("};").new_line();
     }
 
     private void DumpStartWithStates(SourceWriter writer, NfaStateData data) {
@@ -903,54 +869,51 @@ class CppLexerGenerator extends LexerGenerator {
                 + data.getLexerStateSuffix()
                 + "(int pos, int kind, int state)");
 
-        writer.println("{");
-        writer.println("   jjmatchedKind = kind;");
-        writer.println("   jjmatchedPos = pos;");
+        writer.append("{").new_line();
+        writer.append("   jjmatchedKind = kind;").new_line();
+        writer.append("   jjmatchedPos = pos;").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "   fprintf(debugStream, \"   No more string literal token matches are possible.\");");
-            writer.println(
-                    "   fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\",  (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());");
+            writer.append("   fprintf(debugStream, \"   No more string literal token matches are possible.\");").new_line();
+            writer.append("   fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\",  (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());").new_line();
         }
 
-        writer.println("   if (reader->endOfInput()) { return pos + 1; }");
-        writer.println("   curChar = reader->read(); // UTF8: Support Unicode");
+        writer.append("   if (reader->endOfInput()) { return pos + 1; }").new_line();
+        writer.append("   curChar = reader->read(); // UTF8: Support Unicode").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "   fprintf(debugStream, " + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
+            writer.append("   fprintf(debugStream, " + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
                             + "addUnicodeEscapes(lexStateNames[curLexState]).c_str(), curChar, (int)curChar, "
-                            + "reader->getEndLine(), reader->getEndColumn());");
+                            + "reader->getEndLine(), reader->getEndColumn());").new_line();
         }
-        writer.println("   return jjMoveNfa" + data.getLexerStateSuffix() + "(state, pos + 1);");
-        writer.println("}");
+        writer.append("   return jjMoveNfa" + data.getLexerStateSuffix() + "(state, pos + 1);").new_line();
+        writer.append("}").new_line();
     }
 
     @Override
     protected final void DumpHeadForCase(SourceWriter writer, int byteNum) {
         if (byteNum == 0) {
-            writer.println("         unsigned long long l = 1ULL << curChar;");
-            writer.println("         (void)l;");
+            writer.append("         unsigned long long l = 1ULL << curChar;").new_line();
+            writer.append("         (void)l;").new_line();
         }
         else if (byteNum == 1) {
-            writer.println("         unsigned long long l = 1ULL << (curChar & 077);");
-            writer.println("         (void)l;");
+            writer.append("         unsigned long long l = 1ULL << (curChar & 077);").new_line();
+            writer.append("         (void)l;").new_line();
         }
         else {
-            writer.println("         int hiByte = (curChar >> 8);");
-            writer.println("         int i1 = hiByte >> 6;");
-            writer.println("         unsigned long long l1 = 1ULL << (hiByte & 077);");
-            writer.println("         int i2 = (curChar & 0xff) >> 6;");
-            writer.println("         unsigned long long l2 = 1ULL << (curChar & 077);");
+            writer.append("         int hiByte = (curChar >> 8);").new_line();
+            writer.append("         int i1 = hiByte >> 6;").new_line();
+            writer.append("         unsigned long long l1 = 1ULL << (hiByte & 077);").new_line();
+            writer.append("         int i2 = (curChar & 0xff) >> 6;").new_line();
+            writer.append("         unsigned long long l2 = 1ULL << (curChar & 077);").new_line();
         }
 
-        // writer.println(" MatchLoop: do");
-        writer.println("         do");
-        writer.println("         {");
+        // writer.append(" MatchLoop: do").new_line();
+        writer.append("         do").new_line();
+        writer.append("         {").new_line();
 
-        writer.println("            switch(jjstateSet[--i])");
-        writer.println("            {");
+        writer.append("            switch(jjstateSet[--i])").new_line();
+        writer.append("            {").new_line();
     }
 
     private void DumpNonAsciiMoveMethod(LexerData data, NfaState state, SourceWriter writer) {
@@ -958,41 +921,37 @@ class CppLexerGenerator extends LexerGenerator {
                 "\nbool " + data.getParserName() + "TokenManager::jjCanMove_" + state.nonAsciiMethod
                         + "(int hiByte, int i1, int i2, unsigned long long l1, unsigned long long l2)");
 
-        writer.println("{");
-        writer.println("   switch(hiByte)");
-        writer.println("   {");
+        writer.append("{").new_line();
+        writer.append("   switch(hiByte)").new_line();
+        writer.append("   {").new_line();
 
         for (int j = 0; j < state.loByteVec.size(); j += 2) {
-            writer.println("      case " + state.loByteVec.get(j) + ":");
+            writer.append("      case " + state.loByteVec.get(j) + ":").new_line();
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.loByteVec.get(j + 1)))) {
-                writer
-                        .println("         return ((jjbitVec" + state.loByteVec.get(j + 1) + "[i2"
-                                + "] & l2) != 0L);");
+                writer.append("         return ((jjbitVec" + state.loByteVec.get(j + 1) + "[i2] & l2) != 0L);").new_line();
             }
             else {
-                writer.println("            return true;");
+                writer.append("            return true;").new_line();
             }
         }
 
-        writer.println("      default :");
+        writer.append("      default :").new_line();
 
         for (int j = state.nonAsciiMoveIndices.length; j > 0; j -= 2) {
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 2]))) {
-                writer.println(
-                        "         if ((jjbitVec" + state.nonAsciiMoveIndices[j - 2] + "[i1] & l1) != 0L)");
+                writer.append("         if ((jjbitVec" + state.nonAsciiMoveIndices[j - 2] + "[i1] & l1) != 0L)").new_line();
             }
             if (!NfaState.AllBitsSet(data.getAllBitVectors(state.nonAsciiMoveIndices[j - 1]))) {
-                writer.println(
-                        "            if ((jjbitVec" + state.nonAsciiMoveIndices[j - 1] + "[i2] & l2) == 0L)");
-                writer.println("               return false;");
-                writer.println("            else");
+                writer.append("            if ((jjbitVec" + state.nonAsciiMoveIndices[j - 1] + "[i2] & l2) == 0L)").new_line();
+                writer.append("               return false;").new_line();
+                writer.append("            else").new_line();
             }
-            writer.println("            return true;");
+            writer.append("            return true;").new_line();
         }
 
-        writer.println("         return false;");
-        writer.println("   }");
-        writer.println("}");
+        writer.append("         return false;").new_line();
+        writer.append("   }").new_line();
+        writer.append("}").new_line();
     }
 
     private void dumpNfaAndDfaHeader(NfaStateData stateData, SourceWriter writer) {
@@ -1003,9 +962,7 @@ class CppLexerGenerator extends LexerGenerator {
                 params.append("unsigned long long active").append(i).append(", ");
             }
             params.append("unsigned long long active").append(i).append(")");
-            writer.println(
-                    "int jjStopStringLiteralDfa" + stateData.getLexerStateSuffix() + "(int pos, " + params
-                            + ";");
+            writer.append("int jjStopStringLiteralDfa" + stateData.getLexerStateSuffix() + "(int pos, " + params  + ";").new_line();
 
             params.setLength(0);
             params.append("(int pos, ");
@@ -1013,26 +970,24 @@ class CppLexerGenerator extends LexerGenerator {
                 params.append("unsigned long long active").append(i).append(", ");
             }
             params.append("unsigned long long active").append(i).append(")");
-            writer.println("int jjStartNfa" + stateData.getLexerStateSuffix() + params + ";");
+            writer.append("int jjStartNfa" + stateData.getLexerStateSuffix() + params + ";").new_line();
         }
 
         if (stateData.getMaxLen() == 0) {
-            writer.println(" int  jjMoveStringLiteralDfa0" + stateData.getLexerStateSuffix() + "();");
+            writer.append(" int  jjMoveStringLiteralDfa0" + stateData.getLexerStateSuffix() + "();").new_line();
         }
         else if (!stateData.global.boilerPlateDumped) {
-            writer.println(" int " + " jjStopAtPos(int pos, int kind);");
+            writer.append(" int " + " jjStopAtPos(int pos, int kind);").new_line();
             stateData.global.boilerPlateDumped = true;
         }
 
         DumpDfaCodeHeader(writer, stateData);
         if (!stateData.isMixedState() && (stateData.generatedStates() != 0)
                 && stateData.getCreateStartNfa()) {
-            writer.println("int jjStartNfaWithStates" + stateData.getLexerStateSuffix()
-                    + "int pos, int kind, int state);");
+            writer.append("int jjStartNfaWithStates" + stateData.getLexerStateSuffix() + "int pos, int kind, int state);").new_line();
         }
         if (stateData.hasNFA()) {
-            writer.println(
-                    "int jjMoveNfa" + stateData.getLexerStateSuffix() + "(int startState, int curPos);");
+            writer.append("int jjMoveNfa" + stateData.getLexerStateSuffix() + "(int startState, int curPos);").new_line();
         }
     }
 
@@ -1091,8 +1046,7 @@ class CppLexerGenerator extends LexerGenerator {
                 }
             }
             params.append(")");
-            writer.println(
-                    " int  jjMoveStringLiteralDfa" + i + data.getLexerStateSuffix() + params + ";");
+            writer.append(" int  jjMoveStringLiteralDfa" + i + data.getLexerStateSuffix() + params + ";").new_line();
         }
     }
 
@@ -1117,22 +1071,21 @@ class CppLexerGenerator extends LexerGenerator {
                 + data.getLexerStateSuffix()
                 + "(int pos, " + params);
 
-        writer.println("{");
+        writer.append("{").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "      fprintf(debugStream, \"   No more string literal token matches are possible.\");");
+            writer.append("      fprintf(debugStream, \"   No more string literal token matches are possible.\");").new_line();
         }
 
-        writer.println("   switch (pos)");
-        writer.println("   {");
+        writer.append("   switch (pos)").new_line();
+        writer.append("   {").new_line();
 
         for (i = 0; i < (data.getMaxLen() - 1); i++) {
             if (statesForPos[i] == null) {
                 continue;
             }
 
-            writer.println("      case " + i + ":");
+            writer.append("      case " + i + ":").new_line();
 
             Enumeration<String> e = statesForPos[i].keys();
             while (e.hasMoreElements()) {
@@ -1157,49 +1110,49 @@ class CppLexerGenerator extends LexerGenerator {
                 }
 
                 if (condGenerated) {
-                    writer.println(")");
+                    writer.append(")").new_line();
 
                     String kindStr = stateSetString.substring(0, ind = stateSetString.indexOf(", "));
                     String afterKind = stateSetString.substring(ind + 2);
                     int jjmatchedPos = Integer.parseInt(afterKind.substring(0, afterKind.indexOf(", ")));
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
-                        writer.println("         {");
+                        writer.append("         {").new_line();
                     }
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
                         if (i == 0) {
-                            writer.println("            jjmatchedKind = " + kindStr + ";");
+                            writer.append("            jjmatchedKind = " + kindStr + ";").new_line();
 
                             if (((data.global.initMatch(data.getStateIndex()) != 0)
                                     && (data.global.initMatch(data.getStateIndex()) != Integer.MAX_VALUE))) {
-                                writer.println("            jjmatchedPos = 0;");
+                                writer.append("            jjmatchedPos = 0;").new_line();
                             }
                         }
                         else if (i == jjmatchedPos) {
                             if (data.isSubStringAtPos(i)) {
-                                writer.println("            if (jjmatchedPos != " + i + ")");
-                                writer.println("            {");
-                                writer.println("               jjmatchedKind = " + kindStr + ";");
-                                writer.println("               jjmatchedPos = " + i + ";");
-                                writer.println("            }");
+                                writer.append("            if (jjmatchedPos != " + i + ")").new_line();
+                                writer.append("            {").new_line();
+                                writer.append("               jjmatchedKind = " + kindStr + ";").new_line();
+                                writer.append("               jjmatchedPos = " + i + ";").new_line();
+                                writer.append("            }").new_line();
                             }
                             else {
-                                writer.println("            jjmatchedKind = " + kindStr + ";");
-                                writer.println("            jjmatchedPos = " + i + ";");
+                                writer.append("            jjmatchedKind = " + kindStr + ";").new_line();
+                                writer.append("            jjmatchedPos = " + i + ";").new_line();
                             }
                         }
                         else {
                             if (jjmatchedPos > 0) {
-                                writer.println("            if (jjmatchedPos < " + jjmatchedPos + ")");
+                                writer.append("            if (jjmatchedPos < " + jjmatchedPos + ")").new_line();
                             }
                             else {
-                                writer.println("            if (jjmatchedPos == 0)");
+                                writer.append("            if (jjmatchedPos == 0)").new_line();
                             }
-                            writer.println("            {");
-                            writer.println("               jjmatchedKind = " + kindStr + ";");
-                            writer.println("               jjmatchedPos = " + jjmatchedPos + ";");
-                            writer.println("            }");
+                            writer.append("            {").new_line();
+                            writer.append("               jjmatchedKind = " + kindStr + ";").new_line();
+                            writer.append("               jjmatchedPos = " + jjmatchedPos + ";").new_line();
+                            writer.append("            }").new_line();
                         }
                     }
 
@@ -1208,27 +1161,26 @@ class CppLexerGenerator extends LexerGenerator {
                     stateSetString = afterKind.substring(afterKind.indexOf(", ") + 2);
 
                     if (stateSetString.equals("null;")) {
-                        writer.println("            return -1;");
+                        writer.append("            return -1;").new_line();
                     }
                     else {
-                        writer.println(
-                                "            return " + getCompositeStateSet(data, stateSetString) + ";");
+                        writer.append("            return " + getCompositeStateSet(data, stateSetString) + ";").new_line();
                     }
 
                     if (!kindStr.equals(String.valueOf(Integer.MAX_VALUE))) {
-                        writer.println("         }");
+                        writer.append("         }").new_line();
                     }
                     condGenerated = false;
                 }
             }
 
-            writer.println("         return -1;");
+            writer.append("         return -1;").new_line();
         }
 
-        writer.println("      default :");
-        writer.println("         return -1;");
-        writer.println("   }");
-        writer.println("}");
+        writer.append("      default :").new_line();
+        writer.append("         return -1;").new_line();
+        writer.append("   }").new_line();
+        writer.append("}").new_line();
 
         params.setLength(0);
         params.append("(int pos, ");
@@ -1240,19 +1192,17 @@ class CppLexerGenerator extends LexerGenerator {
         writer.append(
                 "\nint " + data.getParserName() + "TokenManager::jjStartNfa" + data.getLexerStateSuffix()
                         + params);
-        writer.println("{");
+        writer.append("{").new_line();
 
         if (data.isMixedState()) {
             if (data.generatedStates() != 0) {
-                writer.println(
-                        "   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)
-                                + ", pos + 1);");
+                writer.append("   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)  + ", pos + 1);").new_line();
             }
             else {
-                writer.println("   return pos + 1;");
+                writer.append("   return pos + 1;").new_line();
             }
 
-            writer.println("}");
+            writer.append("}").new_line();
             return;
         }
 
@@ -1262,8 +1212,8 @@ class CppLexerGenerator extends LexerGenerator {
             writer.append("active" + i + ", ");
         }
         writer.append("active" + i + ")");
-        writer.println(", pos + 1);");
-        writer.println("}");
+        writer.append(", pos + 1);").new_line();
+        writer.append("}").new_line();
     }
 
     @Override
@@ -1285,19 +1235,17 @@ class CppLexerGenerator extends LexerGenerator {
         if (!data.global.boilerPlateDumped) {
             writer.append(
                     "\n int " + data.getParserName() + "TokenManager::jjStopAtPos(int pos, int kind)");
-            writer.println("{");
-            writer.println("   jjmatchedKind = kind;");
-            writer.println("   jjmatchedPos = pos;");
+            writer.append("{").new_line();
+            writer.append("   jjmatchedKind = kind;").new_line();
+            writer.append("   jjmatchedPos = pos;").new_line();
 
             if (data.global.options().getDebugTokenManager()) {
-                writer.println(
-                        "   fprintf(debugStream, \"   No more string literal token matches are possible.\");");
-                writer.println(
-                        "   fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\",  (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());");
+                writer.append("   fprintf(debugStream, \"   No more string literal token matches are possible.\");").new_line();
+                writer.append("   fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\",  (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());").new_line();
             }
 
-            writer.println("   return pos + 1;");
-            writer.println("}");
+            writer.append("   return pos + 1;").new_line();
+            writer.append("}").new_line();
             data.global.boilerPlateDumped = true;
         }
 
@@ -1356,7 +1304,7 @@ class CppLexerGenerator extends LexerGenerator {
             params.append(")");
             writer.append("\n int " + data.getParserName() + "TokenManager::jjMoveStringLiteralDfa" + i
                     + data.getLexerStateSuffix() + params);
-            writer.println("{");
+            writer.append("{").new_line();
 
             if (i != 0) {
                 if (i > 1) {
@@ -1382,7 +1330,7 @@ class CppLexerGenerator extends LexerGenerator {
                         writer.append("(active" + j + " &= old" + j + ")");
                     }
 
-                    writer.println(") == 0L)");
+                    writer.append(") == 0L)").new_line();
                     if (!data.isMixedState() && (data.generatedStates() != 0)) {
                         writer.append(
                                 "      return jjStartNfa" + data.getLexerStateSuffix() + "(" + (i - 2) + ", ");
@@ -1395,30 +1343,24 @@ class CppLexerGenerator extends LexerGenerator {
                             }
                         }
                         if (i <= (data.getMaxLenForActive(j) + 1)) {
-                            writer.println("old" + j + ");");
+                            writer.append("old" + j + ");").new_line();
                         }
                         else {
-                            writer.println("0L);");
+                            writer.append("0L);").new_line();
                         }
                     }
                     else if (data.generatedStates() != 0) {
-                        writer.println(
-                                "      return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data)
-                                        + ", "
-                                        + (i - 1) + ");");
+                        writer.append("      return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", " + (i - 1) + ");").new_line();
                     }
                     else {
-                        writer.println("      return " + i + ";");
+                        writer.append("      return " + i + ";").new_line();
                     }
                 }
 
                 if ((i != 0) && data.global.options().getDebugTokenManager()) {
-                    writer.println(
-                            "   if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(
-                                    Integer.MAX_VALUE) + ")");
-                    writer.println(
-                            "      fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\", (jjmatchedPos + 1), addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());");
-                    writer.println("   fprintf(debugStream, \"   Possible string literal matches : { \");");
+                    writer.append("   if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")").new_line();
+                    writer.append("      fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\", (jjmatchedPos + 1), addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());").new_line();
+                    writer.append("   fprintf(debugStream, \"   Possible string literal matches : { \");").new_line();
 
                     StringBuilder fmt = new StringBuilder();
                     StringBuilder args = new StringBuilder();
@@ -1436,10 +1378,10 @@ class CppLexerGenerator extends LexerGenerator {
                     }
 
                     fmt.append("}\\n");
-                    writer.println("    fprintf(debugStream, \"" + fmt + "\"," + args + ");");
+                    writer.append("    fprintf(debugStream, \"" + fmt + "\"," + args + ");").new_line();
                 }
 
-                writer.println("   if (reader->endOfInput()) {");
+                writer.append("   if (reader->endOfInput()) {").new_line();
 
                 if (!data.isMixedState() && (data.generatedStates() != 0)) {
                     writer.append(
@@ -1454,48 +1396,42 @@ class CppLexerGenerator extends LexerGenerator {
                     }
 
                     if (i <= data.getMaxLenForActive(k)) {
-                        writer.println("active" + k + ");");
+                        writer.append("active" + k + ");").new_line();
                     }
                     else {
-                        writer.println("0L);");
+                        writer.append("0L);").new_line();
                     }
 
                     if ((i != 0) && data.global.options().getDebugTokenManager()) {
-                        writer.println(
-                                "      if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(
-                                        Integer.MAX_VALUE) + ")");
-                        writer.println(
-                                "      fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\", (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());");
+                        writer.append("      if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")").new_line();
+                        writer.append("      fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\", (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());").new_line();
                     }
 
-                    writer.println("      return " + i + ";");
+                    writer.append("      return " + i + ";").new_line();
                 }
                 else if (data.generatedStates() != 0) {
-                    writer.println(
-                            "   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "
-                                    + (i - 1) + ");");
+                    writer.append("   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", " + (i - 1) + ");").new_line();
                 }
                 else {
-                    writer.println("      return " + i + ";");
+                    writer.append("      return " + i + ";").new_line();
                 }
 
-                writer.println("   }");
+                writer.append("   }").new_line();
             }
 
             if ((i != 0)) {
-                writer.println("   curChar = reader->readChar();");
+                writer.append("   curChar = reader->readChar();").new_line();
             }
 
             if ((i != 0) && data.global.options().getDebugTokenManager()) {
-                writer
-                        .println("   fprintf(debugStreoptions.set, "
+                writer.append("   fprintf(debugStreoptions.set, "
                                 + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
                                 + "addUnicodeEscapes(lexStateNames[curLexState]).c_str(), curChar, (int)curChar, "
-                                + "reader->getEndLine(), reader->getEndColumn());");
+                                + "reader->getEndLine(), reader->getEndColumn());").new_line();
             }
 
-            writer.println("   switch(curChar)");
-            writer.println("   {");
+            writer.append("   switch(curChar)").new_line();
+            writer.append("   {").new_line();
 
             for (String key2 : keys) {
                 key = key2;
@@ -1515,15 +1451,15 @@ class CppLexerGenerator extends LexerGenerator {
                 // Since we know key is a single character ...
                 if (data.ignoreCase()) {
                     if (c != Character.toUpperCase(c)) {
-                        writer.println("      case " + (int) Character.toUpperCase(c) + ":");
+                        writer.append("      case " + (int) Character.toUpperCase(c) + ":").new_line();
                     }
 
                     if (c != Character.toLowerCase(c)) {
-                        writer.println("      case " + (int) Character.toLowerCase(c) + ":");
+                        writer.append("      case " + (int) Character.toLowerCase(c) + ":").new_line();
                     }
                 }
 
-                writer.println("      case " + (int) c + ":");
+                writer.append("      case " + (int) c + ":").new_line();
 
                 long matchedKind;
                 String prefix = (i == 0) ? "         " : "            ";
@@ -1550,7 +1486,7 @@ class CppLexerGenerator extends LexerGenerator {
 
                             int kindToPrint;
                             if (i != 0) {
-                                writer.println("((active" + j + " & " + toHexString(1L << k) + ") != 0L)");
+                                writer.append("((active" + j + " & " + toHexString(1L << k) + ") != 0L)").new_line();
                             }
 
                             if ((data.getIntermediateKinds() != null) && (
@@ -1586,26 +1522,25 @@ class CppLexerGenerator extends LexerGenerator {
                                 int stateSetName = GetStateSetForKind(data, i, (j * 64) + k);
 
                                 if (stateSetName != -1) {
-                                    writer.println(
+                                    writer.append(
                                             prefix + "return jjStartNfaWithStates" + data.getLexerStateSuffix() + "(" + i
                                                     + ", "
-                                                    + kindToPrint + ", " + stateSetName + ");");
+                                                    + kindToPrint + ", " + stateSetName + ");").new_line();
                                 }
                                 else {
-                                    writer.println(
-                                            prefix + "return jjStopAtPos" + "(" + i + ", " + kindToPrint + ");");
+                                    writer.append(prefix + "return jjStopAtPos" + "(" + i + ", " + kindToPrint + ");").new_line();
                                 }
                             }
                             else if (((data.global.initMatch(data.getStateIndex()) != 0)
                                     && (data.global.initMatch(data.getStateIndex()) != Integer.MAX_VALUE)) || (i
                                     != 0)) {
-                                writer.println("         {");
-                                writer.println(prefix + "jjmatchedKind = " + kindToPrint + ";");
-                                writer.println(prefix + "jjmatchedPos = " + i + ";");
-                                writer.println("         }");
+                                writer.append("         {").new_line();
+                                writer.append(prefix + "jjmatchedKind = " + kindToPrint + ";").new_line();
+                                writer.append(prefix + "jjmatchedPos = " + i + ";").new_line();
+                                writer.append("         }").new_line();
                             }
                             else {
-                                writer.println(prefix + "jjmatchedKind = " + kindToPrint + ";");
+                                writer.append(prefix + "jjmatchedKind = " + kindToPrint + ";").new_line();
                             }
                         }
                     }
@@ -1638,7 +1573,7 @@ class CppLexerGenerator extends LexerGenerator {
 
                             writer.append(toHexString(info.validKinds[j]));
                         }
-                        writer.println(");");
+                        writer.append(");").new_line();
                     }
                     else {
                         writer.append("         return ");
@@ -1675,32 +1610,30 @@ class CppLexerGenerator extends LexerGenerator {
                             }
                         }
 
-                        writer.println(");");
+                        writer.append(");").new_line();
                     }
                 }
                 else // A very special case.
                     if ((i == 0) && data.isMixedState()) {
 
                         if (data.generatedStates() != 0) {
-                            writer.println(
-                                    "         return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(
-                                            data) + ", 0);");
+                            writer.append("         return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", 0);").new_line();
                         }
                         else {
-                            writer.println("         return 1;");
+                            writer.append("         return 1;").new_line();
                         }
                     }
                     else if (i != 0) // No more str literals to look for
                     {
-                        writer.println("         break;");
+                        writer.append("         break;").new_line();
                         startNfaNeeded = true;
                     }
             }
 
-            writer.println("      default :");
+            writer.append("      default :").new_line();
 
             if (data.global.options().getDebugTokenManager()) {
-                writer.println("      fprintf(debugStream, \"   No string literal matches possible.\");");
+                writer.append("      fprintf(debugStream, \"   No string literal matches possible.\");").new_line();
             }
 
             if (data.generatedStates() != 0) {
@@ -1708,21 +1641,18 @@ class CppLexerGenerator extends LexerGenerator {
                     /*
                      * This means no string literal is possible. Just move nfa with this guy and return.
                      */
-                    writer
-                            .println(
-                                    "         return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(
-                                            data) + ", 0);");
+                    writer.append("         return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", 0);").new_line();
                 }
                 else {
-                    writer.println("         break;");
+                    writer.append("         break;").new_line();
                     startNfaNeeded = true;
                 }
             }
             else {
-                writer.println("         return " + (i + 1) + ";");
+                writer.append("         return " + (i + 1) + ";").new_line();
             }
 
-            writer.println("   }");
+            writer.append("   }").new_line();
 
             if ((i != 0) && startNfaNeeded) {
                 if (!data.isMixedState() && (data.generatedStates() != 0)) {
@@ -1742,23 +1672,21 @@ class CppLexerGenerator extends LexerGenerator {
                         }
                     }
                     if (i <= data.getMaxLenForActive(k)) {
-                        writer.println("active" + k + ");");
+                        writer.append("active" + k + ");").new_line();
                     }
                     else {
-                        writer.println("0L);");
+                        writer.append("0L);").new_line();
                     }
                 }
                 else if (data.generatedStates() != 0) {
-                    writer.println(
-                            "   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", "
-                                    + i + ");");
+                    writer.append("   return jjMoveNfa" + data.getLexerStateSuffix() + "(" + InitStateName(data) + ", " + i + ");").new_line();
                 }
                 else {
-                    writer.println("   return " + (i + 1) + ";");
+                    writer.append("   return " + (i + 1) + ";").new_line();
                 }
             }
 
-            writer.println("}");
+            writer.append("}").new_line();
         }
 
         if (!data.isMixedState() && (data.generatedStates() != 0) && data.getCreateStartNfa()) {
@@ -1771,136 +1699,130 @@ class CppLexerGenerator extends LexerGenerator {
         writer.append(
                 "\nint " + data.getParserName() + "TokenManager::jjMoveNfa" + data.getLexerStateSuffix()
                         + "(int startState, int curPos)");
-        writer.println("{");
+        writer.append("{").new_line();
         if (data.generatedStates() == 0) {
-            writer.println("   return curPos;");
-            writer.println("}");
+            writer.append("   return curPos;").new_line();
+            writer.append("}").new_line();
             return;
         }
 
         if (data.isMixedState()) {
-            writer.println("   int strKind = jjmatchedKind;");
-            writer.println("   int strPos = jjmatchedPos;");
-            writer.println("   int seenUpto;");
-            writer.println("   reader->backup(seenUpto = curPos + 1);");
-            writer.println("   assert(!reader->endOfInput());");
-            writer.println("   curChar = reader->read(); // UTF8: Support Unicode");
-            writer.println("   curPos = 0;");
+            writer.append("   int strKind = jjmatchedKind;").new_line();
+            writer.append("   int strPos = jjmatchedPos;").new_line();
+            writer.append("   int seenUpto;").new_line();
+            writer.append("   reader->backup(seenUpto = curPos + 1);").new_line();
+            writer.append("   assert(!reader->endOfInput());").new_line();
+            writer.append("   curChar = reader->read(); // UTF8: Support Unicode").new_line();
+            writer.append("   curPos = 0;").new_line();
         }
 
-        writer.println("   int startsAt = 0;");
-        writer.println("   jjnewStateCnt = " + data.generatedStates() + ";");
-        writer.println("   int i = 1;");
-        writer.println("   jjstateSet[0] = startState;");
+        writer.append("   int startsAt = 0;").new_line();
+        writer.append("   jjnewStateCnt = " + data.generatedStates() + ";").new_line();
+        writer.append("   int i = 1;").new_line();
+        writer.append("   jjstateSet[0] = startState;").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "      fprintf(debugStream, \"   Starting NFA to match one of : %s\\n\", jjKindsForStateVector(curLexState, jjstateSet, 0, 1).c_str());");
+            writer.append("      fprintf(debugStream, \"   Starting NFA to match one of : %s\\n\", jjKindsForStateVector(curLexState, jjstateSet, 0, 1).c_str());").new_line();
         }
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
+            writer.append(
                     "   fprintf(debugStream, " + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
                             + "addUnicodeEscapes(lexStateNames[curLexState]).c_str(), curChar, (int)curChar, "
-                            + "reader->getEndLine(), reader->getEndColumn());");
+                            + "reader->getEndLine(), reader->getEndColumn());").new_line();
         }
 
-        writer.println("   int kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-        writer.println("   for (;;)");
-        writer.println("   {");
-        writer.println("      if (++jjround == 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")");
-        writer.println("         ReInitRounds();");
-        writer.println("      if (curChar < 64)");
-        writer.println("      {");
+        writer.append("   int kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
+        writer.append("   for (;;)").new_line();
+        writer.append("   {").new_line();
+        writer.append("      if (++jjround == 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")").new_line();
+        writer.append("         ReInitRounds();").new_line();
+        writer.append("      if (curChar < 64)").new_line();
+        writer.append("      {").new_line();
 
         DumpAsciiMoves(writer, data, 0);
 
-        writer.println("      }");
+        writer.append("      }").new_line();
 
-        writer.println("      else if (curChar < 128)");
+        writer.append("      else if (curChar < 128)").new_line();
 
-        writer.println("      {");
+        writer.append("      {").new_line();
 
         DumpAsciiMoves(writer, data, 1);
 
-        writer.println("      }");
+        writer.append("      }").new_line();
 
-        writer.println("      else");
-        writer.println("      {");
+        writer.append("      else").new_line();
+        writer.append("      {").new_line();
 
         DumpCharAndRangeMoves(writer, data);
 
-        writer.println("      }");
+        writer.append("      }").new_line();
 
-        writer.println("      if (kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")");
-        writer.println("      {");
-        writer.println("         jjmatchedKind = kind;");
-        writer.println("         jjmatchedPos = curPos;");
-        writer.println("         kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";");
-        writer.println("      }");
-        writer.println("      ++curPos;");
+        writer.append("      if (kind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")").new_line();
+        writer.append("      {").new_line();
+        writer.append("         jjmatchedKind = kind;").new_line();
+        writer.append("         jjmatchedPos = curPos;").new_line();
+        writer.append("         kind = 0x" + Integer.toHexString(Integer.MAX_VALUE) + ";").new_line();
+        writer.append("      }").new_line();
+        writer.append("      ++curPos;").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "      if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(
-                            Integer.MAX_VALUE) + ")");
-            writer.println(
-                    "   fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\",  (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());");
+            writer.append("      if (jjmatchedKind != 0 && jjmatchedKind != 0x" + Integer.toHexString(Integer.MAX_VALUE) + ")").new_line();
+            writer.append("   fprintf(debugStream, \"   Currently matched the first %d characters as a \\\"%s\\\" token.\\n\",  (jjmatchedPos + 1),  addUnicodeEscapes(tokenImage[jjmatchedKind]).c_str());").new_line();
         }
 
-        writer.println("      if ((i = jjnewStateCnt), (jjnewStateCnt = startsAt), (i == (startsAt = "
-                + data.generatedStates() + " - startsAt)))");
+        writer.append("      if ((i = jjnewStateCnt), (jjnewStateCnt = startsAt), (i == (startsAt = " + data.generatedStates() + " - startsAt)))").new_line();
         if (data.isMixedState()) {
-            writer.println("         break;");
+            writer.append("         break;").new_line();
         }
         else {
-            writer.println("         return curPos;");
+            writer.append("         return curPos;").new_line();
         }
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
-                    "      fprintf(debugStream, \"   Possible kinds of longer matches : %s\\n\", jjKindsForStateVector(curLexState, jjstateSet, startsAt, i).c_str());");
+            writer.append("      fprintf(debugStream, \"   Possible kinds of longer matches : %s\\n\", jjKindsForStateVector(curLexState, jjstateSet, startsAt, i).c_str());").new_line();
         }
 
         if (data.isMixedState()) {
-            writer.println("      if (reader->endOfInput()) { break; }");
+            writer.append("      if (reader->endOfInput()) { break; }").new_line();
         }
         else {
-            writer.println("      if (reader->endOfInput()) { return curPos; }");
+            writer.append("      if (reader->endOfInput()) { return curPos; }").new_line();
         }
-        writer.println("      curChar = reader->read(); // UTF8: Support Unicode");
+        writer.append("      curChar = reader->read(); // UTF8: Support Unicode").new_line();
 
         if (data.global.options().getDebugTokenManager()) {
-            writer.println(
+            writer.append(
                     "   fprintf(debugStream, " + "\"<%s>Current character : %c(%d) at line %d column %d\\n\","
                             + "addUnicodeEscapes(lexStateNames[curLexState]).c_str(), curChar, (int)curChar, "
-                            + "reader->getEndLine(), reader->getEndColumn());");
+                            + "reader->getEndLine(), reader->getEndColumn());").new_line();
         }
 
-        writer.println("   }");
+        writer.append("   }").new_line();
 
         if (data.isMixedState()) {
-            writer.println("   if (jjmatchedPos > strPos)");
-            writer.println("      return curPos;");
-            writer.println("");
-            writer.println("   int toRet = MAX(curPos, seenUpto);");
-            writer.println("");
-            writer.println("   if (curPos < toRet)");
-            writer.println("      for (i = toRet - MIN(curPos, seenUpto); i-- > 0; )");
-            writer.println("        {  assert(!reader->endOfInput());");
-            writer.println("           curChar = reader->read(); } // UTF8: Support Unicode");
-            writer.println("");
-            writer.println("   if (jjmatchedPos < strPos)");
-            writer.println("   {");
-            writer.println("      jjmatchedKind = strKind;");
-            writer.println("      jjmatchedPos = strPos;");
-            writer.println("   }");
-            writer.println("   else if (jjmatchedPos == strPos && jjmatchedKind > strKind)");
-            writer.println("      jjmatchedKind = strKind;");
-            writer.println("");
-            writer.println("   return toRet;");
+            writer.append("   if (jjmatchedPos > strPos)").new_line();
+            writer.append("      return curPos;").new_line();
+            writer.new_line();
+            writer.append("   int toRet = MAX(curPos, seenUpto);").new_line();
+            writer.new_line();
+            writer.append("   if (curPos < toRet)").new_line();
+            writer.append("      for (i = toRet - MIN(curPos, seenUpto); i-- > 0; )").new_line();
+            writer.append("        {  assert(!reader->endOfInput());").new_line();
+            writer.append("           curChar = reader->read(); } // UTF8: Support Unicode").new_line();
+            writer.new_line();
+            writer.append("   if (jjmatchedPos < strPos)").new_line();
+            writer.append("   {").new_line();
+            writer.append("      jjmatchedKind = strKind;").new_line();
+            writer.append("      jjmatchedPos = strPos;").new_line();
+            writer.append("   }").new_line();
+            writer.append("   else if (jjmatchedPos == strPos && jjmatchedKind > strKind)").new_line();
+            writer.append("      jjmatchedKind = strKind;").new_line();
+            writer.new_line();
+            writer.append("   return toRet;").new_line();
         }
-        writer.println("}");
+        writer.append("}").new_line();
     }
 
     private static void getTextAsChars(String text, SourceWriter writer) {
@@ -1908,6 +1830,5 @@ class CppLexerGenerator extends LexerGenerator {
         for (int j = 0; j < text.length(); j++) {
             chars.add("0x" + Integer.toHexString(text.charAt(j)));
         }
-        writer.append(String.join(", ", chars));
     }
 }

@@ -12,7 +12,7 @@ import org.hivevm.cc.model.RExpression;
 import org.hivevm.cc.model.RStringLiteral;
 import org.hivevm.cc.model.TokenProduction;
 import org.hivevm.cc.parser.JavaCCErrors;
-import org.hivevm.core.SourceWriter;
+import org.hivevm.source.SourceWriter;
 
 /**
  * Generates the Constants file.

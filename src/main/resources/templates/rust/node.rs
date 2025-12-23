@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{{RUST_MODULE}}::treeconstants::TreeConstants;
+use crate::__RUST_MODULE__::treeconstants::TreeConstants;
 
 pub trait Node {
     fn get_id(&self) -> &'static TreeConstants;
@@ -42,23 +42,23 @@ pub fn new_node(id: &'static TreeConstants) -> Rc<dyn Node> {
 }
 
 /*
-  private final {{PARSER_NAME}} parser;
-  private final {{PARSER_NAME}}TreeConstants id;
+  private final __PARSER_NAME__ parser;
+  private final __PARSER_NAME__TreeConstants id;
 
   private Node   parent;
   private Node[] children;
   private Object value;
-@if(TRACK_TOKENS)
+//@if(TRACK_TOKENS)
   private Token  firstToken;
   private Token  lastToken;
-@fi
+//@fi
 
-  public Node({{PARSER_NAME}} p, {{PARSER_NAME}}TreeConstants i) {
+  public Node(__PARSER_NAME__ p, __PARSER_NAME__TreeConstants i) {
     this.id = i;
     this.parser = p;
   }
 
-  public {{PARSER_NAME}} jjtParser() {
+  public __PARSER_NAME__ jjtParser() {
     return parser;
   }
 
@@ -82,30 +82,30 @@ pub fn new_node(id: &'static TreeConstants) -> Rc<dyn Node> {
     return this.value;
   }
 
-@if(TRACK_TOKENS)
+//@if(TRACK_TOKENS)
   public Token jjtGetFirstToken() { return firstToken; }
   public void jjtSetFirstToken(Token token) { this.firstToken = token; }
   public Token jjtGetLastToken() { return lastToken; }
   public void jjtSetLastToken(Token token) { this.lastToken = token; }
 
-@fi
-@if(VISITOR)
-  public {{VISITOR_RETURN_TYPE}} jjtAccept({{PARSER_NAME}}Visitor visitor, {{VISITOR_DATA_TYPE:Object}} data)
-@if(VISITOR_EXCEPTION)
-     throws {{VISITOR_EXCEPTION}}
-@fi
+//@fi
+//@if(VISITOR)
+  public __VISITOR_RETURN_TYPE__ jjtAccept(__PARSER_NAME__Visitor visitor, __VISITOR_DATA_TYPE:Object__ data)
+//@if(VISITOR_EXCEPTION)
+     throws __VISITOR_EXCEPTION__
+//@fi
 {
-@if(VISITOR_RETURN_TYPE_VOID)
+//@if(VISITOR_RETURN_TYPE_VOID)
     visitor.visit(this, data);
-@else
+//@else
     return visitor.visit(this, data);
-@fi
+//@fi
   }
 
-  public Object childrenAccept({{PARSER_NAME}}Visitor visitor, {{VISITOR_DATA_TYPE:Object}} data)
-@if(VISITOR_EXCEPTION)
-     throws {{VISITOR_EXCEPTION}}
-@fi
+  public Object childrenAccept(__PARSER_NAME__Visitor visitor, __VISITOR_DATA_TYPE:Object__ data)
+//@if(VISITOR_EXCEPTION)
+     throws __VISITOR_EXCEPTION__
+//@fi
 {
     if (children != null) {
       for (int i = 0; i < children.length; ++i) {
@@ -115,7 +115,7 @@ pub fn new_node(id: &'static TreeConstants) -> Rc<dyn Node> {
     return data;
   }
 
-@fi
+//@fi
 
   @Override
   public String toString() {
@@ -137,5 +137,4 @@ pub fn new_node(id: &'static TreeConstants) -> Rc<dyn Node> {
       }
     }
   }
-
-  */
+*/

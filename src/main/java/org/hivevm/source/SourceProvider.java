@@ -1,7 +1,7 @@
 // Copyright 2024 HiveVM.ORG. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-package org.hivevm.core;
+package org.hivevm.source;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -9,6 +9,7 @@ import java.io.IOException;
 import org.hivevm.cc.HiveCCVersion;
 import org.hivevm.cc.parser.JavaCCErrors;
 import org.hivevm.cc.parser.Options;
+import org.hivevm.core.Environment;
 
 /**
  * Represents a provider for retrieving and rendering templates.
@@ -17,13 +18,11 @@ import org.hivevm.cc.parser.Options;
  * and creating corresponding file objects based on user-defined options. It additionally provides
  * default methods for rendering templates, either with or without a specified name.
  */
-public interface TemplateProvider {
+public interface SourceProvider {
 
-    String getName();
+    String getPath();
 
     String getType();
-
-    String getTarget(String name);
 
     File getTargetFile(String name, Options options);
 
@@ -38,10 +37,10 @@ public interface TemplateProvider {
      * Renders a template using the specified options and name, generating an output file.
      */
     default void render(Options options, String name) {
-        var path = String.format("/templates/%s/%s.template", getType(), getName());
+        var path = String.format("/templates/%s/%s", getType(), getPath());
         var file = getTargetFile(name, options);
         file.getParentFile().mkdirs();
-        try (var stream = TemplateProvider.class.getResourceAsStream(path)) {
+        try (var stream = SourceProvider.class.getResourceAsStream(path)) {
             if (stream == null) {
                 throw new IOException("Invalid template name: " + path);
             }

@@ -14,7 +14,7 @@ import java.util.function.Supplier;
 
 import org.hivevm.cc.parser.Options;
 import org.hivevm.core.Environment;
-import org.hivevm.core.SourceWriter;
+import org.hivevm.source.SourceWriter;
 import org.jspecify.annotations.NonNull;
 
 

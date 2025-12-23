@@ -1,7 +1,7 @@
 // Copyright 2024 HiveVM.ORG. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-package org.hivevm.core;
+package org.hivevm.source;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -14,6 +14,8 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.hivevm.core.Environment;
 import org.jspecify.annotations.NonNull;
 
 /**

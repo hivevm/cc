@@ -8,12 +8,12 @@ pub struct CharStream<'a> {
   available: usize,
   buffer: [char; BUFFER_SIZE],
   next_char_buf: [char; BUFFER_SIZE],
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
   line: usize,
   column: usize,
   bufline: [usize; BUFFER_SIZE],
   bufcolumn: [usize; BUFFER_SIZE],
-@fi
+//@fi
   tab_size: usize,
   track_line_column: bool,
   max_next_char_ind: usize,
@@ -34,12 +34,12 @@ impl<'a> CharStream<'a> {
       bufsize: BUFFER_SIZE,
       buffer: ['\0'; BUFFER_SIZE],
       next_char_buf: ['\0'; BUFFER_SIZE],
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
       line: 1,
       column: 0,
       bufline: [0; BUFFER_SIZE],
       bufcolumn: [0; BUFFER_SIZE],
-@fi
+//@fi
       tab_size: 1,
       track_line_column: true,
       max_next_char_ind: 0,
@@ -124,7 +124,7 @@ impl<'a> CharStream<'a> {
 
     self.read_char()
   }
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
 
   fn update_line_column(&mut self, c: char ) {
     if self.prev_char_is_lf {
@@ -158,7 +158,7 @@ impl<'a> CharStream<'a> {
     self.bufline[self.bufpos as usize] = self.line;
     self.bufcolumn[self.bufpos as usize] = self.column;
   }
-@fi
+//@fi
 
   pub fn read_char(&mut self) -> Result<char, std::io::Error> {
     if self.in_buf > 0 {
@@ -180,9 +180,9 @@ impl<'a> CharStream<'a> {
     let mut c: char = self.read_byte()?;
     self.buffer[self.bufpos as usize] = c;
     if self.buffer[self.bufpos as usize] == '\\' {
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
       self.update_line_column(c);
-@fi
+//@fi
 
       let mut back_slash_cnt: usize = 1;
       loop { // Read all the backslashes
@@ -217,9 +217,9 @@ impl<'a> CharStream<'a> {
           return Ok('\\');
         }
 
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
         self.update_line_column(c);
-@fi
+//@fi
         back_slash_cnt += 1;
       }
 
@@ -227,26 +227,26 @@ impl<'a> CharStream<'a> {
       // Here, we have seen an odd number of backslash's followed by a 'u'
       try {
         while ((c = self.read_byte()) == 'u') {
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
           self.column += 1;
-@else
+//@else
           ;
-@fi
+//@fi
         }
 
         self.buffer[self.bufpos] =
             c = (char) ((hexval(c) << 12) | (hexval(read_byte()) << 8)
                 | (hexval(read_byte()) << 4) | hexval(read_byte()));
 
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
         self.column += 4;
-@fi
+//@fi
       } catch (java.io.IOException e) {
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
         return Err(std::io::Error::new(std::io::ErrorKind::Other, "Invalid escape character at line {} column {}.", self.line, self.column))
-@else
+//@else
         return Err(std::io::Error::new(std::io::ErrorKind::Other, "Invalid escape character in input"))
-@fi
+//@fi
       }
 */
 
@@ -257,9 +257,9 @@ impl<'a> CharStream<'a> {
         return Ok('\\');
       }
     } else {
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
       self.update_line_column(c);
-@fi
+//@fi
       return Ok(c);
     }
   }
@@ -275,10 +275,10 @@ impl<'a> CharStream<'a> {
   fn done(&mut self) {
 //    this.next_char_buf = null;
 //    this.buffer = null;
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
 //    this.bufline = null;
 //    this.bufcolumn = null;
-@fi
+//@fi
   }
 
   fn get_tab_size(&self) -> usize {
@@ -289,7 +289,7 @@ impl<'a> CharStream<'a> {
     self.tab_size = i;
   }
 
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
   fn get_track_line_column(&self) -> bool {
     self.track_line_column
   }
@@ -313,7 +313,7 @@ impl<'a> CharStream<'a> {
   pub fn get_begin_line(&self) -> usize {
     self.bufline[self.token_begin]
   }
-@fi
+//@fi
 
   fn adjust_buff_size(&mut self) {
 /*
@@ -337,17 +337,17 @@ impl<'a> CharStream<'a> {
 
   fn expand_buff(&mut self, wrapAround: bool) {
     char[] newbuffer = new char[this.bufsize + 2048];
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
     int newbufline[] = new int[this.bufsize + 2048];
     int newbufcolumn[] = new int[this.bufsize + 2048];
-@fi
+//@fi
 
     try {
       if (wrapAround) {
         System.arraycopy(this.buffer, this.token_begin, newbuffer, 0, this.bufsize - this.token_begin);
         System.arraycopy(this.buffer, 0, newbuffer, this.bufsize - this.token_begin, this.bufpos);
         this.buffer = newbuffer;
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
 
         System.arraycopy(this.bufline, this.token_begin, newbufline, 0, this.bufsize - this.token_begin);
         System.arraycopy(this.bufline, 0, newbufline, this.bufsize - this.token_begin, this.bufpos);
@@ -356,20 +356,20 @@ impl<'a> CharStream<'a> {
         System.arraycopy(this.bufcolumn, this.token_begin, newbufcolumn, 0, this.bufsize - this.token_begin);
         System.arraycopy(this.bufcolumn, 0, newbufcolumn, this.bufsize - this.token_begin, this.bufpos);
         this.bufcolumn = newbufcolumn;
-@fi
+//@fi
 
         this.bufpos += (this.bufsize - this.token_begin) as isize;
       } else {
         System.arraycopy(this.buffer, this.token_begin, newbuffer, 0, this.bufsize - this.token_begin);
         this.buffer = newbuffer;
-@if(KEEP_LINE_COLUMN)
+//@if(KEEP_LINE_COLUMN)
 
         System.arraycopy(this.bufline, this.token_begin, newbufline, 0, this.bufsize - this.token_begin);
         this.bufline = newbufline;
 
         System.arraycopy(this.bufcolumn, this.token_begin, newbufcolumn, 0, this.bufsize - this.token_begin);
         this.bufcolumn = newbufcolumn;
-@fi
+//@fi
 
         this.bufpos -= this.token_begin as isize;
       }

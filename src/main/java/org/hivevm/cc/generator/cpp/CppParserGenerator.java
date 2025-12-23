@@ -27,7 +27,7 @@ import org.hivevm.cc.parser.Token;
 import org.hivevm.cc.semantic.Semanticize;
 import org.hivevm.cc.utils.Encoding;
 import org.hivevm.cc.utils.TemplateOptions;
-import org.hivevm.core.SourceWriter;
+import org.hivevm.source.SourceWriter;
 
 /**
  * Implements the {@link ParserGenerator} for the C++ language.
@@ -98,11 +98,11 @@ class CppParserGenerator extends ParserGenerator {
         int indentamt = 4;
         if (data.getDebugParser()) {
             writer.new_line();
-            writer.println("    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
-                    + Encoding.escapeUnicode(p.getLhs(), Language.CPP) + "\"); });");
-            writer.println("    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
-                    + Encoding.escapeUnicode(p.getLhs(), Language.CPP) + "\"); });");
-            writer.println("    try {");
+            writer.append("    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
+                    + Encoding.escapeUnicode(p.getLhs(), Language.CPP) + "\"); });").new_line();
+            writer.append("    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
+                    + Encoding.escapeUnicode(p.getLhs(), Language.CPP) + "\"); });").new_line();
+            writer.append("    try {").new_line();
             indentamt = 6;
         }
 
@@ -164,15 +164,15 @@ class CppParserGenerator extends ParserGenerator {
         }
 
         if (data.getDebugParser()) {
-            writer.println("    } catch(...) { }");
+            writer.append("    } catch(...) { }").new_line();
         }
         if (!voidReturn) {
-            writer.println("assert(false);");
+            writer.append("assert(false);").new_line();
         }
         if (error_ret != null) {
-            writer.println("\n#undef __ERROR_RET__");
+            writer.append("\n#undef __ERROR_RET__").new_line();
         }
-        writer.println("}");
+        writer.append("}").new_line();
         writer.new_line();
     }
 
@@ -594,43 +594,41 @@ class CppParserGenerator extends ParserGenerator {
     private void genStackCheck(boolean voidReturn, SourceWriter writer, ParserData data) {
         if (data.getDepthLimit() > 0) {
             if (!voidReturn) {
-                writer.println("if(jj_depth_error){ return __ERROR_RET__; }");
+                writer.append("if(jj_depth_error){ return __ERROR_RET__; }").new_line();
             }
             else {
-                writer.println("if(jj_depth_error){ return; }");
+                writer.append("if(jj_depth_error){ return; }").new_line();
             }
-            writer.println("__jj_depth_inc __jj_depth_counter(this);");
-            writer.println("if(jj_depth > " + data.getDepthLimit() + ") {");
-            writer.println("  jj_depth_error = true;");
-            writer.println("  jj_consume_token(-1);");
-            writer.println(
-                    "  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;");
+            writer.append("__jj_depth_inc __jj_depth_counter(this);").new_line();
+            writer.append("if(jj_depth > " + data.getDepthLimit() + ") {").new_line();
+            writer.append("  jj_depth_error = true;").new_line();
+            writer.append("  jj_consume_token(-1);").new_line();
+            writer.append("  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;").new_line();
             if (!voidReturn) {
-                writer.println("  return __ERROR_RET__;"); // Non-recoverable error
+                writer.append("  return __ERROR_RET__;").new_line(); // Non-recoverable error
             }
             else {
-                writer.println("  return;"); // Non-recoverable error
+                writer.append("  return;").new_line(); // Non-recoverable error
             }
-            writer.println("}");
+            writer.append("}").new_line();
         }
     }
 
     private void generatePhase2(Expansion e, SourceWriter writer, ParserData data) {
-        writer.println("  inline bool jj_2" + e.internalName() + "(int xla) {");
-        writer.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
+        writer.append("  inline bool jj_2" + e.internalName() + "(int xla) {").new_line();
+        writer.append("    jj_la = xla; jj_lastpos = jj_scanpos = token;").new_line();
 
         String ret_suffix = "";
         if (data.getDepthLimit() > 0) {
             ret_suffix = " && !jj_depth_error";
         }
 
-        writer.println("    jj_done = false;");
-        writer.println("    return (!jj_3" + e.internalName() + "() || jj_done)" + ret_suffix + ";");
+        writer.append("    jj_done = false;").new_line();
+        writer.append("    return (!jj_3" + e.internalName() + "() || jj_done)" + ret_suffix + ";").new_line();
         if (data.getErrorReporting()) {
-            writer.println(
-                    "    { jj_save(" + (Integer.parseInt(e.internalName().substring(1)) - 1) + ", xla); }");
+            writer.append("    { jj_save(" + (Integer.parseInt(e.internalName().substring(1)) - 1) + ", xla); }").new_line();
         }
-        writer.println("  }");
+        writer.append("  }").new_line();
         writer.new_line();
     }
 
@@ -639,11 +637,11 @@ class CppParserGenerator extends ParserGenerator {
             return;
         }
 
-        writer.println(" inline bool jj_3" + e.internalName() + "()");
-        writer.println(" {\n");
-        writer.println("    if (jj_done) return true;");
+        writer.append(" inline bool jj_3" + e.internalName() + "()").new_line();
+        writer.append(" {\n").new_line();
+        writer.append("    if (jj_done) return true;").new_line();
         if (data.getDepthLimit() > 0) {
-            writer.println("#define __ERROR_RET__ true");
+            writer.append("#define __ERROR_RET__ true").new_line();
         }
         genStackCheck(false, writer, data);
         boolean xsp_declared = false;
@@ -652,18 +650,17 @@ class CppParserGenerator extends ParserGenerator {
             String prefix = "    ";
             if (data.getErrorReporting())
                 prefix += "if (!jj_rescan) ";
-            writer.println(prefix + "trace_call(\""
-                    + Encoding.escapeUnicode(np.getLhs(), Language.CPP) + "(LOOKING AHEAD...)\");");
+            writer.append(prefix + "trace_call(\"" + Encoding.escapeUnicode(np.getLhs(), Language.CPP) + "(LOOKING AHEAD...)\");").new_line();
             jj3_expansion = e;
         }
 
         buildPhase3RoutineRecursive(data, jj3_expansion, xsp_declared, e, count, writer);
 
-        writer.println("    " + genReturn(jj3_expansion, false, data));
+        writer.append("    " + genReturn(jj3_expansion, false, data)).new_line();
         if (data.getDepthLimit() > 0) {
-            writer.println("#undef __ERROR_RET__");
+            writer.append("#undef __ERROR_RET__").new_line();
         }
-        writer.println("  }");
+        writer.append("  }").new_line();
         writer.new_line();
     }
 
@@ -678,13 +675,13 @@ class CppParserGenerator extends ParserGenerator {
             case RExpression e_nrw -> {
                 if (e_nrw.getLabel().isEmpty()) {
                     String label = data.getNameOfToken(e_nrw.getOrdinal());
-                    writer.println("    if (jj_scan_token(" + Objects.requireNonNullElseGet(label,
-                            () -> e_nrw.getOrdinal()) + ")) " + genReturn(jj3_expansion, true, data));
+                    writer.append("    if (jj_scan_token(" + Objects.requireNonNullElseGet(label,
+                            () -> e_nrw.getOrdinal()) + ")) " + genReturn(jj3_expansion, true, data)).new_line();
                 }
                 else {
-                    writer.println(
+                    writer.append(
                             "    if (jj_scan_token(" + e_nrw.getLabel() + ")) " + genReturn(jj3_expansion, true,
-                                    data));
+                                    data)).new_line();
                 }
             }
             case NonTerminal e_nrw -> {
@@ -694,17 +691,16 @@ class CppParserGenerator extends ParserGenerator {
                 // variables are the same.
                 NormalProduction ntprod = data.getProduction(e_nrw.getName());
                 Expansion ntexp = ntprod.getExpansion();
-                writer.println(
-                        "    if (" + genjj_3Call(ntexp) + ") " + genReturn(jj3_expansion, true, data));
+                writer.append("    if (" + genjj_3Call(ntexp) + ") " + genReturn(jj3_expansion, true, data)).new_line();
             }
             case Choice e_nrw -> {
                 Sequence nested_seq;
                 if (e_nrw.getChoices().size() != 1) {
                     if (!xsp_declared) {
                         xsp_declared = true;
-                        writer.println("    Token* xsp;");
+                        writer.append("    Token* xsp;").new_line();
                     }
-                    writer.println("    xsp = jj_scanpos;");
+                    writer.append("    xsp = jj_scanpos;").new_line();
                 }
 
                 Token t = null;
@@ -712,7 +708,7 @@ class CppParserGenerator extends ParserGenerator {
                     nested_seq = (Sequence) (e_nrw.getChoices().get(i));
                     Lookahead la = (Lookahead) (nested_seq.getUnits().getFirst());
                     if (!la.getActionTokens().isEmpty()) {
-                        writer.println("    jj_lookingAhead = true;");
+                        writer.append("    jj_lookingAhead = true;").new_line();
                         writer.append("    jj_semLA = ");
                         genTokenSetup((la.getActionTokens().getFirst()));
                         for (Token token : la.getActionTokens()) {
@@ -720,23 +716,23 @@ class CppParserGenerator extends ParserGenerator {
                             writer.append(getStringToPrint(t));
                         }
                         writer.append(getTrailingComments(t));
-                        writer.println(";");
-                        writer.println("    jj_lookingAhead = false;");
+                        writer.append(";").new_line();
+                        writer.append("    jj_lookingAhead = false;").new_line();
                     }
                     writer.append("    if (");
                     if (!la.getActionTokens().isEmpty()) {
                         writer.append("!jj_semLA || ");
                     }
                     if (i != (e_nrw.getChoices().size() - 1)) {
-                        writer.println(genjj_3Call(nested_seq) + ") {");
-                        writer.println("    jj_scanpos = xsp;");
+                        writer.append(genjj_3Call(nested_seq) + ") {").new_line();
+                        writer.append("    jj_scanpos = xsp;").new_line();
                     }
                     else {
-                        writer.println(genjj_3Call(nested_seq) + ") " + genReturn(jj3_expansion, true, data));
+                        writer.append(genjj_3Call(nested_seq) + ") " + genReturn(jj3_expansion, true, data)).new_line();
                     }
                 }
                 for (int i = 1; i < e_nrw.getChoices().size(); i++) {
-                    writer.println("    }");
+                    writer.append("    }").new_line();
                 }
             }
             case Sequence e_nrw -> {
@@ -756,35 +752,34 @@ class CppParserGenerator extends ParserGenerator {
             case OneOrMore e_nrw -> {
                 if (!xsp_declared) {
                     xsp_declared = true;
-                    writer.println("    Token* xsp;");
+                    writer.append("    Token* xsp;").new_line();
                 }
                 Expansion nested_e = e_nrw.getExpansion();
-                writer.println(
-                        "    if (" + genjj_3Call(nested_e) + ") " + genReturn(jj3_expansion, true, data));
-                writer.println("    while (true) {");
-                writer.println("      xsp = jj_scanpos;");
-                writer.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-                writer.println("    }");
+                writer.append("    if (" + genjj_3Call(nested_e) + ") " + genReturn(jj3_expansion, true, data)).new_line();
+                writer.append("    while (true) {").new_line();
+                writer.append("      xsp = jj_scanpos;").new_line();
+                writer.append("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }").new_line();
+                writer.append("    }").new_line();
             }
             case ZeroOrMore e_nrw -> {
                 if (!xsp_declared) {
                     xsp_declared = true;
-                    writer.println("    Token* xsp;");
+                    writer.append("    Token* xsp;").new_line();
                 }
                 Expansion nested_e = e_nrw.getExpansion();
-                writer.println("    while (true) {");
-                writer.println("      xsp = jj_scanpos;");
-                writer.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-                writer.println("    }");
+                writer.append("    while (true) {").new_line();
+                writer.append("      xsp = jj_scanpos;").new_line();
+                writer.append("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }").new_line();
+                writer.append("    }").new_line();
             }
             case ZeroOrOne e_nrw -> {
                 if (!xsp_declared) {
                     xsp_declared = true;
-                    writer.println("    Token* xsp;");
+                    writer.append("    Token* xsp;").new_line();
                 }
                 Expansion nested_e = e_nrw.getExpansion();
-                writer.println("    xsp = jj_scanpos;");
-                writer.println("    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;");
+                writer.append("    xsp = jj_scanpos;").new_line();
+                writer.append("    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;").new_line();
             }
             default -> {
             }
