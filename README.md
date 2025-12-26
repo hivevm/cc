@@ -1,5 +1,6 @@
-[![status](https://img.shields.io/badge/status-stable-blue.svg)](https://github.com/hivevm/cc/tree/main)
-[![License](https://img.shields.io/badge/License-BSD%203%20Clause-green.svg)]([https://opencollective.com/tauri](https://opensource.org/license/bsd-3-clause))
+![Status](https://img.shields.io/github/actions/workflow/status/hivevm/cc/main.yml?label=Build)
+![GitHub License](https://img.shields.io/github/license/hivevm/cc?label=License&link=https%3A%2F%2Fopensource.org%2Flicense%2Fbsd-3-clause)
+
 
 # HiveVM - Parser Generator
 
