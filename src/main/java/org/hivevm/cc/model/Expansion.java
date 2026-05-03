@@ -34,6 +34,8 @@ public class Expansion extends Production {
     // This flag is used for bookkeeping by the minimumSize method in class ParseEngine.
     private boolean inMinimumSize = false;
 
+    private NodeScope node_scope;
+
     public final Object parent() {
         return this.parent;
     }
@@ -75,6 +77,14 @@ public class Expansion extends Production {
         this.internal_name = internal_name;
     }
 
+    public void setNodeScope(NodeScope node_scope) {
+        this.node_scope = node_scope;
+    }
+
+    public NodeScope getNodeScope() {
+        return this.node_scope;
+    }
+
     /**
      * A reimplementing of Object.hashCode() to be deterministic. This uses the line and column
      * fields to generate an arbitrary number - we assume that this method is called only after line
@@ -90,7 +100,7 @@ public class Expansion extends Production {
         var name = getClass().getName();
         name = name.substring(name.lastIndexOf(".") + 1); // strip the package name
         return "[" + getLine() + "," + getColumn() + " " + System.identityHashCode(this) + " "
-            + name
-            + "]";
+                + name
+                + "]";
     }
 }

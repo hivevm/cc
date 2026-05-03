@@ -22,7 +22,7 @@ class H3QLTest {
     void testCpp() {
         var builder = ParserBuilder.of(Language.CPP);
         builder.setTargetDir(H3QLTest.PARSER_CPP);
-        builder.setTreeFile(H3QLTest.PARSER_JJT, "OQL.jjt");
+        builder.setParserFile(H3QLTest.PARSER_JJT, "OQL.jjt");
         builder.build().parse();
     }
 
@@ -31,7 +31,7 @@ class H3QLTest {
     void testJava() {
         var builder = ParserBuilder.of(Language.JAVA);
         builder.setTargetDir(H3QLTest.PARSER_JAVA);
-        builder.setTreeFile(H3QLTest.PARSER_JJT, "OQL.jjt");
+        builder.setParserFile(H3QLTest.PARSER_JJT, "OQL.jjt");
         builder.build().parse();
     }
 
@@ -40,7 +40,7 @@ class H3QLTest {
     void testRust() {
         var builder = ParserBuilder.of(Language.RUST);
         builder.setTargetDir(H3QLTest.PARSER_RUST);
-        builder.setTreeFile(H3QLTest.PARSER_JJT, "OQL.jjt");
+        builder.setParserFile(H3QLTest.PARSER_JJT, "OQL.jjt");
         builder.build().parse();
     }
 
