@@ -105,7 +105,7 @@ parserProject {
 
   task {
     name       = 'tree'
-    file       = 'src/main/resources/JJTree.jjt'
+    file       = 'src/main/resources/JJTree.jj'
     treeNodes  = [ 'BNF', 'NodeDescriptor' ]
   }
 

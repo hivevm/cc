@@ -3,7 +3,6 @@ package org.hivevm.cc;
 import java.io.File;
 import java.nio.file.Files;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class H3QLTest {
@@ -18,7 +17,6 @@ class H3QLTest {
     public static final File PARSER_RUST = new File("/data/hivevm/hql/src");
 
     @Test
-    @Disabled
     void testCpp() {
         var builder = ParserBuilder.of(Language.CPP);
         builder.setTargetDir(H3QLTest.PARSER_CPP);
@@ -27,7 +25,6 @@ class H3QLTest {
     }
 
     @Test
-    @Disabled
     void testJava() {
         var builder = ParserBuilder.of(Language.JAVA);
         builder.setTargetDir(H3QLTest.PARSER_JAVA);
@@ -36,7 +33,6 @@ class H3QLTest {
     }
 
     @Test
-    @Disabled
     void testRust() {
         var builder = ParserBuilder.of(Language.RUST);
         builder.setTargetDir(H3QLTest.PARSER_RUST);
