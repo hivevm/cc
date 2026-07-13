@@ -8,7 +8,6 @@ import org.hivevm.cc.model.RExpression;
 import org.hivevm.cc.model.RStringLiteral;
 import org.hivevm.cc.model.TokenKind;
 import org.hivevm.cc.model.TokenProduction;
-import org.hivevm.cc.parser.JavaCCErrors;
 import org.hivevm.cc.parser.RegExprSpec;
 
 import java.util.ArrayList;
@@ -223,13 +222,9 @@ record Nfa(NfaState start, NfaState end) {
                 continue;
             }
 
-            try {
-                oldStates = (List<NfaState>) initialState.epsilonMoves.clone();
-                if ((oldStates == null) || oldStates.isEmpty()) {
-                    return;
-                }
-            } catch (Exception e) {
-                JavaCCErrors.semantic_error("Error cloning state vector");
+            oldStates = new ArrayList<>(initialState.epsilonMoves);
+            if (oldStates.isEmpty()) {
+                return;
             }
 
             data.intermediateKinds[i] = new int[image.length()];

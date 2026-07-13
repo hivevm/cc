@@ -147,6 +147,49 @@ class GeneratedCodeCompilesTest {
                 GeneratedCodeCompilesTest.NON_ASCII_COMPOSITE_STATES);
     }
 
+    /**
+     * KEEP_LINE_COLUMN drives the line/column tracking in {@code jjFillToken()}. Nothing asserted
+     * that, and a lexer stripped of it still compiles — it just hands out tokens whose position is
+     * always zero. The condition guarding those blocks was spelled {@code KEEP_LINE_COOL} in the
+     * templates <em>and</em> in the generator, so it worked by accident; this pins the behaviour to
+     * the option rather than to the spelling.
+     */
+    @Test
+    void keepLineColumnDrivesPositionTracking(@TempDir Path dir) throws IOException {
+        var on = generate(dir.resolve("on"), "Pos.jj", GeneratedCodeCompilesTest.NO_LOOKAHEAD);
+        assertTrue(lexerOf(on).contains("t.beginLine = beginLine;"),
+                "the lexer does not track line/column, although KEEP_LINE_COLUMN defaults to true");
+
+        var off = generate(dir.resolve("off"), "Pos.jj", GeneratedCodeCompilesTest.NO_LOOKAHEAD
+                .replace("  JAVA_PACKAGE: \"org.example\"",
+                        "  JAVA_PACKAGE: \"org.example\",\n  KEEP_LINE_COLUMN: false"));
+        assertTrue(!lexerOf(off).contains("t.beginLine = beginLine;"),
+                "the lexer still tracks line/column, although KEEP_LINE_COLUMN was switched off");
+    }
+
+    /** Reads the generated {@code Lexer.java}, wherever the package layout put it. */
+    private static String lexerOf(Path target) throws IOException {
+        try (Stream<Path> paths = Files.walk(target)) {
+            var lexer = paths.filter(p -> p.getFileName().toString().equals("Lexer.java")).findFirst()
+                    .orElseThrow(() -> new AssertionError("no Lexer.java was generated in " + target));
+            return Files.readString(lexer);
+        }
+    }
+
+    private static Path generate(Path dir, String name, String grammar) throws IOException {
+        Files.createDirectories(dir);
+        var source = dir.resolve(name);
+        Files.writeString(source, grammar);
+
+        var target = dir.resolve("generated");
+        var builder = new ParserBuilder();
+        builder.setLanguage(Language.JAVA);
+        builder.setTargetDir(target.toFile());
+        builder.setParserFile(source.toFile());
+        builder.build().parse();
+        return target;
+    }
+
     private static void assertGeneratedSourceCompiles(Path dir, String name, String grammar)
             throws IOException {
         var source = dir.resolve(name);
