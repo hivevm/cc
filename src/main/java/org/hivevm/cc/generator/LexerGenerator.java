@@ -1006,7 +1006,9 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
             dumpNfaStartStatesCode(printer, stateData, stateData.statesForPos);
         dumpDfaCode(printer, stateData);
         if (stateData.hasNFA) {
-            prepareNfaStates(stateData);
+            // ADR-0012: no NFA-state preparation here — stage 4 (DfaBuilder.getMoveNfa, run from
+            // LexerBuilder for every hasNFA state) already rearranged the states, populated
+            // global.kinds / global.statesForState, and fixed the state sets on these very objects.
             dumpMoveNfa(printer, stateData);
         }
     }
@@ -2362,47 +2364,6 @@ printDebugPossibleMatches(printer, data, i);
 
     protected final int stateNameForComposite(NfaStateData data, String stateSetString) {
         return data.stateNameForComposite.get(stateSetString);
-    }
-
-    private void prepareNfaStates(NfaStateData data) {
-        int i;
-        int[] kindsForStates = null;
-
-        if (data.global.getKinds() == null) {
-            data.global.init();
-        }
-
-        DfaBuilder.reArrange(data);
-
-        for (i = 0; i < data.getAllStateCount(); i++) {
-            var temp = data.getAllState(i);
-            if ((temp.lexState != data.getStateIndex()) || !temp.HasTransitions() || temp.dummy || (
-                    temp.stateName == -1)) {
-                continue;
-            }
-
-            if (kindsForStates == null) {
-                kindsForStates = new int[data.generatedStates()];
-                data.global.getStatesForState()[data.getStateIndex()] =
-                        new int[Math.max(data.generatedStates(), data.dummyStateIndex + 1)][];
-            }
-
-            kindsForStates[temp.stateName] = temp.lookingFor;
-            data.global.getStatesForState()[data.getStateIndex()][temp.stateName] = temp.compositeStates;
-        }
-
-        for (var s : data.stateNameForComposite.keySet()) {
-            int state = data.stateNameForComposite.get(s);
-            if (state >= data.generatedStates()) {
-                data.global.getStatesForState()[data.getStateIndex()][state] = data.getNextStates(s);
-            }
-        }
-
-        if (!data.stateSetsToFix.isEmpty()) {
-            DfaBuilder.fixStateSets(data);
-        }
-
-        data.global.setKinds(data.getStateIndex(), kindsForStates);
     }
 
     protected final Vector<List<NfaState>> PartitionStatesSetForAscii(NfaStateData data, int[] states, int byteNum) {
