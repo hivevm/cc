@@ -3,6 +3,7 @@
 
 package org.hivevm.cc.generator;
 
+import org.hivevm.cc.Encoding;
 import org.hivevm.cc.Language;
 import org.hivevm.cc.model.Action;
 import org.hivevm.cc.model.Choice;
@@ -101,6 +102,35 @@ public abstract class ParserGenerator extends CodeGenerator<ParserData> {
         if (t.next != null) {
             printLeadingComments(printer, t.next);
         }
+    }
+
+    /**
+     * The value returned from a jj_3 lookahead routine. Shared by the Java and C++ back ends; the
+     * Rust back end overrides it (snake-case production name, no {@code return ...;} wrapper).
+     */
+    protected String genReturn(Expansion expansion, boolean value, ParserData data) {
+        String retval = Boolean.toString(value);
+        if (data.getDebugLookahead() && (expansion != null)) {
+            String tracecode =
+                    "trace_return(\"" + Encoding.escapeUnicode(
+                            ((NormalProduction) expansion.parent()).getLhs(), getLanguage())
+                            + "(LOOKAHEAD " + (value ? "FAILED" : "SUCCEEDED") + ")\");";
+            if (data.getErrorReporting()) {
+                tracecode = "if (!jj_rescan) " + tracecode;
+            }
+            return "{ " + tracecode + " return " + retval + "; }";
+        } else {
+            return "return " + retval + ";";
+        }
+    }
+
+    /**
+     * The call to a jj_3 routine (or a raw {@code jj_scan_token...}). Shared by the Java and C++ back
+     * ends; the Rust back end overrides it to snake-case the internal name.
+     */
+    protected String genjj_3Call(Expansion e) {
+        var name = e.internalName();
+        return name.startsWith("jj_scan_token") ? name : "jj_3" + name + "()";
     }
 
     private void generatePhase1(NormalProduction p, LinePrinter printer, ParserData data) {

@@ -493,7 +493,8 @@ class RustParserGenerator extends ParserGenerator {
     }
 
 
-    private String genReturn(Expansion expansion, boolean value, ParserData data) {
+    @Override
+    protected String genReturn(Expansion expansion, boolean value, ParserData data) {
         String retval = Boolean.toString(value);
         if (data.getDebugLookahead() && (expansion != null)) {
             String tracecode =
@@ -509,7 +510,8 @@ class RustParserGenerator extends ParserGenerator {
         }
     }
 
-    private String genjj_3Call(Expansion e) {
+    @Override
+    protected String genjj_3Call(Expansion e) {
         var name = e.internalName();
         return name.startsWith("jj_scan_token") ? name : "jj_3" + internal_name_as_snake_case(e) + "()";
     }

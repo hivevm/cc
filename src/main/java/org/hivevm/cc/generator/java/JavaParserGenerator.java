@@ -532,27 +532,6 @@ class JavaParserGenerator extends ParserGenerator {
     }
 
 
-    private String genReturn(Expansion expansion, boolean value, ParserData data) {
-        String retval = Boolean.toString(value);
-        if (data.getDebugLookahead() && (expansion != null)) {
-            String tracecode =
-                    "trace_return(\"" + Encoding.escapeUnicode(
-                            ((NormalProduction) expansion.parent()).getLhs(), Language.JAVA)
-                            + "(LOOKAHEAD " + (value ? "FAILED" : "SUCCEEDED") + ")\");";
-            if (data.getErrorReporting()) {
-                tracecode = "if (!jj_rescan) " + tracecode;
-            }
-            return "{ " + tracecode + " return " + retval + "; }";
-        } else {
-            return "return " + retval + ";";
-        }
-    }
-
-    private String genjj_3Call(Expansion e) {
-        var name = e.internalName();
-        return name.startsWith("jj_scan_token") ? name : "jj_3" + name + "()";
-    }
-
     @Override
     public final void insertOpenNodeCode(NodeScope ns, String nodeClass, LinePrinter printer, Options options) {
         printer.print(nodeClass + " " + ns.getNodeVariable() + " = ");

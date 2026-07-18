@@ -22,6 +22,10 @@ public abstract class CodeGenerator<D> {
         this.language = language;
     }
 
+    protected final Language getLanguage() {
+        return this.language;
+    }
+
     public abstract void generate(D context);
 
     protected final void setup_token(Token t) {
