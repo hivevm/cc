@@ -303,37 +303,6 @@ record Nfa(NfaState start, NfaState end) {
     }
 
     /**
-     * Calculates and registers composite state sets needed for NFA start state transitions.
-     */
-    public static void calcNfaStartStatesCode(NfaStateData data,
-                                              Hashtable<String, long[]>[] statesForPos) {
-        if (data.maxStrKind == 0) {
-            return;
-        }
-
-        int i;
-        boolean condGenerated = false;
-        int ind = 0;
-
-        for (i = 0; i < (data.maxLen - 1); i++) {
-            if (statesForPos[i] == null) {
-                continue;
-            }
-            for (String stateSetString : statesForPos[i].keySet()) {
-                if (condGenerated) {
-                    String afterKind = stateSetString.substring(ind + 2);
-                    afterKind = stateSetString.substring(ind + 2);
-                    stateSetString = afterKind.substring(afterKind.indexOf(", ") + 2);
-                    if (!stateSetString.equals("null;")) {
-                        data.addCompositeStateSet(stateSetString);
-                    }
-                    condGenerated = false;
-                }
-            }
-        }
-    }
-
-    /**
      * Computes non-ASCII move indices and bit vectors for a single NFA state.
      */
     public static void getNonAsciiMoves(LexerData data, NfaState state) {

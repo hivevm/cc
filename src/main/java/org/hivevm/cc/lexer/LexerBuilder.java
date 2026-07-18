@@ -33,13 +33,9 @@ public class LexerBuilder {
         choices.forEach(c -> StringLiteralAnalyzer.checkUnmatchability((RChoice) c, data));
         StringLiteralAnalyzer.checkEmptyStringMatch(data);
 
-        for (String key : data.getStateNames()) {
-            NfaStateData stateData = data.getStateData(key);
-            if (stateData.hasNFA && !stateData.isMixedState()) {
-                Nfa.calcNfaStartStatesCode(stateData, stateData.statesForPos);
-            }
-        }
-
+        // The stop-string-literal DFA registers its composite state sets lazily at emit time via
+        // LexerGenerator#dumpNfaStartStatesCode; an earlier compute-time pre-registration pass here
+        // was dead code (its guard was never satisfied) and has been removed.
         for (String stateName : data.getStateNames()) {
             NfaStateData stateData = data.getStateData(stateName);
             if (stateData.hasNFA) {

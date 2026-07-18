@@ -209,6 +209,33 @@ class RustCompilesTest {
     }
 
     /**
+     * DEPTH_LIMIT is unimplemented for the Rust target: the template has no {@code jj_depth_error}
+     * flag and declares {@code jj_depth} as a {@code u32} (so the {@code -1} sentinel cannot
+     * compile), and the generator emitted Java {@code throw}/{@code try}/{@code ++} into the Rust
+     * output. Rather than produce Rust that cannot compile, generation must fail honestly
+     * (SPECIFICATION.md §3: target feature gaps are tracked, not silently produced).
+     */
+    @Test
+    void rejectsDepthLimitForRust(@TempDir Path dir) throws IOException {
+        var grammar = RustCompilesTest.KEYWORDS.replace(
+                "  JAVA_PACKAGE: \"org.example\"",
+                "  JAVA_PACKAGE: \"org.example\",\n  DEPTH_LIMIT: 5");
+        var source = dir.resolve("Grammar.jj");
+        Files.writeString(source, grammar);
+
+        var builder = new ParserBuilder()
+                .setLanguage(Language.RUST)
+                .setParserFile(source.toFile())
+                .setTargetDir(dir.resolve("rust").toFile());
+
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                org.hivevm.cc.GenerationException.class, () -> builder.build().parse());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                failure.getMessage() != null && failure.getMessage().contains("DEPTH_LIMIT"),
+                "expected a DEPTH_LIMIT-not-supported message, got: " + failure.getMessage());
+    }
+
+    /**
      * The parser is not covered yet: it still emits Java. Only the lexer and what it depends on go
      * through rustc.
      */
