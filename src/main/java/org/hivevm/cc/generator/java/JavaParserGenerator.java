@@ -225,11 +225,11 @@ class JavaParserGenerator extends ParserGenerator {
             default:
         }
 
-        for (var c : cases) {
-            if (cases.indexOf(c) > 0)
+        for (int i = 0; i < cases.size(); i++) {
+            if (i > 0)
                 printer.println();
             printer.print("case ");
-            printer.print(c);
+            printer.print(cases.get(i));
             printer.print(":");
         }
 

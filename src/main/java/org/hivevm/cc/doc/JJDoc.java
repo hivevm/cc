@@ -8,7 +8,6 @@ import org.hivevm.cc.HiveCCOptions;
 import org.hivevm.cc.model.*;
 import org.hivevm.cc.parser.JavaCCData;
 import org.hivevm.cc.parser.RegExprSpec;
-import org.hivevm.cc.parser.Token;
 
 import java.util.Iterator;
 
@@ -25,34 +24,11 @@ class JJDoc extends JJDocGlobals {
         JJDocGlobals.generator.documentEnd();
     }
 
-    private static Token getPrecedingSpecialToken(Token tok) {
-        Token t = tok;
-        while (t.specialToken != null) {
-            t = t.specialToken;
-        }
-        return (t != tok) ? t : null;
-    }
-
-    private static void emitTopLevelSpecialTokens(Token tok) {
-        if (tok == null)
-            // Strange ...
-            return;
-        JJDoc.getPrecedingSpecialToken(tok);
-    }
-
-    /*
-     * private static boolean toplevelExpansion(Expansion exp) { return exp.parent != null && (
-     * (exp.parent instanceof NormalProduction) || (exp.parent instanceof TokenProduction) ); }
-     */
 
     private static void emitTokenProductions(Generator gen, Iterable<TokenProduction> prods) {
         gen.tokensStart();
-        // FIXME there are many empty productions here
         for (TokenProduction tp : prods) {
-            JJDoc.emitTopLevelSpecialTokens(tp.getFirstToken());
-
             gen.handleTokenProduction(tp);
-
         }
         gen.tokensEnd();
     }
@@ -99,7 +75,6 @@ class JJDoc extends JJDocGlobals {
     private static void emitNormalProductions(Generator gen, Iterable<NormalProduction> prods) {
         gen.nonterminalsStart();
         for (NormalProduction np : prods) {
-            JJDoc.emitTopLevelSpecialTokens(np.getFirstToken());
             if (np instanceof BNFProduction) {
                 gen.productionStart(np);
                 if (np.getExpansion() instanceof Choice c) {
