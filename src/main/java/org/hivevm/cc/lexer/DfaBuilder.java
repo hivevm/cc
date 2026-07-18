@@ -32,13 +32,13 @@ public class DfaBuilder {
         for (i = 0; i < data.maxLen; i++) {
             tab = data.charPosKind.get(i);
             CaseLoop:
-            for (String key2 : reArrange(tab)) {
+            for (String key2 : NfaStateData.reArrange(tab)) {
                 key = key2;
                 info = (KindInfo) tab.get(key);
                 char c = key.charAt(0);
 
                 if ((i == 0) && (c < 128) && info.hasFinalKindCnt()
-                        && ((data.generatedStates() == 0) || !canStartNfaUsingAscii(data, c))) {
+                        && ((data.generatedStates() == 0) || !data.canStartNfaUsingAscii(c))) {
                     int kind;
                     for (j = 0; j < maxLongsReqd; j++) {
                         if (info.finalKinds[j] != 0L) {
@@ -93,6 +93,7 @@ public class DfaBuilder {
 
                             if (!data.subString[((j * 64) + k)]) {
                                 int stateSetName = getStateSetForKind(data, i, (j * 64) + k);
+                                data.putStateSetName(i, (j * 64) + k, stateSetName);
                                 if (stateSetName != -1) {
                                     data.createStartNfa = true;
                                 }
@@ -575,31 +576,6 @@ public class DfaBuilder {
         }
     }
 
-    public static <T> String[] reArrange(Hashtable<String, T> tab) {
-        var ret = new String[tab.size()];
-        int cnt = 0;
-
-        for (var s : tab.keySet()) {
-            int i = 0, j;
-            char c = s.charAt(0);
-
-            while ((i < cnt) && (ret[i].charAt(0) < c)) {
-                i++;
-            }
-
-            if (i < cnt) {
-                for (j = cnt - 1; j >= i; j--) {
-                    ret[j + 1] = ret[j];
-                }
-            }
-
-            ret[i] = s;
-            cnt++;
-        }
-
-        return ret;
-    }
-
     public static void fixStateSets(NfaStateData data) {
         Hashtable<String, int[]> fixedSets = new Hashtable<>();
         int[] tmp = new int[data.generatedStates()];
@@ -640,7 +616,7 @@ public class DfaBuilder {
         return data.stateNameForComposite.get(stateSetString);
     }
 
-    public static int getStateSetForKind(NfaStateData data, int pos, int kind) {
+    private static int getStateSetForKind(NfaStateData data, int pos, int kind) {
         if (data.isMixedState() || (data.generatedStates() == 0)) {
             return -1;
         }
@@ -665,27 +641,6 @@ public class DfaBuilder {
             }
         }
         return -1;
-    }
-
-    public static boolean canStartNfaUsingAscii(NfaStateData data, char c) {
-        if (c >= 128) {
-            throw new IllegalStateException(
-                    "canStartNfaUsingAscii called with a non-ASCII character: " + (int) c);
-        }
-
-        String s = data.getInitialState().GetEpsilonMovesString();
-        if ((s == null) || s.equals("null;")) {
-            return false;
-        }
-
-        int[] states = data.getNextStates(s);
-        for (int state : states) {
-            NfaState tmp = data.getIndexedState(state);
-            if ((tmp.asciiMoves[c / 64] & (1L << (c % 64))) != 0L) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static void addCharToSkip(NfaStateData data, NfaState[] singlesToSkip, char c,

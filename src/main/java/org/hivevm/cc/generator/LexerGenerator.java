@@ -5,7 +5,6 @@ package org.hivevm.cc.generator;
 
 import org.hivevm.cc.Encoding;
 import org.hivevm.cc.Language;
-import org.hivevm.cc.lexer.DfaBuilder;
 import org.hivevm.cc.lexer.LexerData;
 import org.hivevm.cc.lexer.NfaState;
 import org.hivevm.cc.lexer.NfaStateData;
@@ -1564,10 +1563,10 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
     protected final boolean isPlainSkip(NfaStateData data, KindInfo info, int i, int maxLongsReqd,
                                         char c) {
         // Note the negation: the deleted local CanStartNfaUsingAscii was the boolean inverse of
-        // DfaBuilder.canStartNfaUsingAscii, and the old call sites compensated by using opposite
+        // NfaStateData#canStartNfaUsingAscii, and the old call sites compensated by using opposite
         // senses. Both sites compute "generatedStates == 0 || no ASCII move for c".
         if (!((i == 0) && (c < 128) && info.hasFinalKindCnt()
-                && ((data.generatedStates() == 0) || !DfaBuilder.canStartNfaUsingAscii(data, c)))) {
+                && ((data.generatedStates() == 0) || !data.canStartNfaUsingAscii(c)))) {
             return false;
         }
 
@@ -1905,7 +1904,7 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
         for (i = 0; i < data.getMaxLen(); i++) {
             boolean startNfaNeeded = false;
             tab = data.getCharPosKind(i);
-            var keys = DfaBuilder.reArrange(tab);
+            var keys = NfaStateData.reArrange(tab);
 
             printMoveStringLiteralDfaSignature(printer, data, i, maxLongsReqd);
 
@@ -1990,7 +1989,7 @@ printDebugPossibleMatches(printer, data, i);
                             }
 
                             if (!data.isSubString((j * 64) + k)) {
-                                int stateSetName = DfaBuilder.getStateSetForKind(data, i, (j * 64) + k);
+                                int stateSetName = data.getStateSetName(i, (j * 64) + k);
 
                                 if (stateSetName != -1) {
                                     printer.println("return jjStartNfaWithStates"
