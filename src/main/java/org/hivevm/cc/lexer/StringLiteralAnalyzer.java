@@ -22,8 +22,6 @@ class StringLiteralAnalyzer {
      */
     public static void generateDfa(NfaStateData data, RStringLiteral rstring) {
         String s;
-        Hashtable<String, NfaStateData.KindInfo> temp;
-        NfaStateData.KindInfo info;
         int len;
 
         if (data.maxStrKind <= rstring.getOrdinal()) {
@@ -42,68 +40,48 @@ class StringLiteralAnalyzer {
                 s = "" + (c = rstring.getImage().charAt(i));
             }
 
-            if (i >= data.charPosKind.size()) { // Kludge, but OK
-                data.charPosKind.add(temp = new Hashtable<>());
-            } else { // Kludge, but OK
-                temp = data.charPosKind.get(i);
-            }
-
-            if ((info = temp.get(s)) == null) {
-                temp.put(s, info = new KindInfo(data.global.maxOrdinal));
-            }
-
-            if ((i + 1) == len) {
-                info.InsertFinalKind(rstring.getOrdinal());
-            } else {
-                info.InsertValidKind(rstring.getOrdinal());
-            }
+            insertKind(data, i, len, s, rstring.getOrdinal());
 
             if (!data.ignoreCase() && data.global.ignoreCase[rstring.getOrdinal()] && (c
                     != Character.toLowerCase(c))) {
                 s = ("" + rstring.getImage().charAt(i)).toLowerCase(Locale.ENGLISH);
-
-                if (i >= data.charPosKind.size()) { // Kludge, but OK
-                    data.charPosKind.add(temp = new Hashtable<>());
-                } else { // Kludge, but OK
-                    temp = data.charPosKind.get(i);
-                }
-
-                if ((info = temp.get(s)) == null) {
-                    temp.put(s, info = new KindInfo(data.global.maxOrdinal));
-                }
-
-                if ((i + 1) == len) {
-                    info.InsertFinalKind(rstring.getOrdinal());
-                } else {
-                    info.InsertValidKind(rstring.getOrdinal());
-                }
+                insertKind(data, i, len, s, rstring.getOrdinal());
             }
 
             if (!data.ignoreCase() && data.global.ignoreCase[rstring.getOrdinal()] && (c
                     != Character.toUpperCase(c))) {
                 s = ("" + rstring.getImage().charAt(i)).toUpperCase();
-
-                if (i >= data.charPosKind.size()) { // Kludge, but OK
-                    data.charPosKind.add(temp = new Hashtable<>());
-                } else { // Kludge, but OK
-                    temp = data.charPosKind.get(i);
-                }
-
-                if ((info = temp.get(s)) == null) {
-                    temp.put(s, info = new KindInfo(data.global.maxOrdinal));
-                }
-
-                if ((i + 1) == len) {
-                    info.InsertFinalKind(rstring.getOrdinal());
-                } else {
-                    info.InsertValidKind(rstring.getOrdinal());
-                }
+                insertKind(data, i, len, s, rstring.getOrdinal());
             }
         }
 
         data.maxLenForActive[rstring.getOrdinal() / 64] =
                 Math.max(data.maxLenForActive[rstring.getOrdinal() / 64], len - 1);
         data.global.allImages[rstring.getOrdinal()] = rstring.getImage();
+    }
+
+    /**
+     * Records {@code ordinal} at position {@code i} of the charPosKind table under key {@code s},
+     * as a final kind when it is the last character of the literal and a valid kind otherwise.
+     */
+    private static void insertKind(NfaStateData data, int i, int len, String s, int ordinal) {
+        Hashtable<String, NfaStateData.KindInfo> temp;
+        NfaStateData.KindInfo info;
+        if (i >= data.charPosKind.size()) { // Kludge, but OK
+            data.charPosKind.add(temp = new Hashtable<>());
+        } else { // Kludge, but OK
+            temp = data.charPosKind.get(i);
+        }
+
+        if ((info = temp.get(s)) == null) {
+            temp.put(s, info = new KindInfo(data.global.maxOrdinal));
+        }
+
+        if ((i + 1) == len) {
+            info.InsertFinalKind(ordinal);
+        } else {
+            info.InsertValidKind(ordinal);
+        }
     }
 
     /**
