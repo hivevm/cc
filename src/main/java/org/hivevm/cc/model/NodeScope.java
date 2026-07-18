@@ -3,8 +3,6 @@
 
 package org.hivevm.cc.model;
 
-import org.hivevm.cc.parser.ParserDescriptor;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
