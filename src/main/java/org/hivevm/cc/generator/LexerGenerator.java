@@ -5,6 +5,7 @@ package org.hivevm.cc.generator;
 
 import org.hivevm.cc.Encoding;
 import org.hivevm.cc.Language;
+import org.hivevm.cc.lexer.DfaBuilder;
 import org.hivevm.cc.lexer.LexerData;
 import org.hivevm.cc.lexer.NfaState;
 import org.hivevm.cc.lexer.NfaStateData;
@@ -970,31 +971,6 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
     }
 // --------------------------------------- RString
 
-    public static <T> String[] re_arrange(Hashtable<String, T> tab) {
-        var ret = new String[tab.size()];
-        int cnt = 0;
-
-        for (var s : tab.keySet()) {
-            int i = 0, j;
-            char c = s.charAt(0);
-
-            while ((i < cnt) && (ret[i].charAt(0) < c)) {
-                i++;
-            }
-
-            if (i < cnt) {
-                for (j = cnt - 1; j >= i; j--) {
-                    ret[j + 1] = ret[j];
-                }
-            }
-
-            ret[i] = s;
-            cnt++;
-        }
-
-        return ret;
-    }
-
     private int GetLine(LexerData data, int kind) {
         return data.getRegExp(kind).getLine();
     }
@@ -1023,107 +999,7 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
                         data.global.canMatchAnyChar(data.getStateIndex())) + ".");
     }
 
-    protected final int GetStateSetForKind(NfaStateData data, int pos, int kind) {
-        if (data.isMixedState() || (data.generatedStates() == 0)) {
-            return -1;
-        }
-
-        var allStateSets = data.statesForPos[pos];
-        if (allStateSets == null) {
-            return -1;
-        }
-
-        for (var s : allStateSets.keySet()) {
-            long[] actives = allStateSets.get(s);
-
-            s = s.substring(s.indexOf(", ") + 2);
-            s = s.substring(s.indexOf(", ") + 2);
-            if (s.equals("null;")) {
-                continue;
-            }
-
-            if ((actives != null) && ((actives[kind / 64] & (1L << (kind % 64))) != 0L)) {
-                return AddCompositeStateSet(data, s);
-            }
-        }
-        return -1;
-    }
-
-    protected final boolean CanStartNfaUsingAscii(NfaStateData data, char c) {
-        if (c >= 128) {
-            throw new IllegalStateException(
-                    "CanStartNfaUsingAscii called with a non-ASCII character: " + (int) c);
-        }
-
-        var move = data.getInitialState().GetEpsilonMovesString();
-        if ((move == null) || move.equals("null;")) {
-            return true;
-        }
-
-        int[] states = data.getNextStates(move);
-        for (int state : states) {
-            NfaState tmp = data.getIndexedState(state);
-            if ((tmp.asciiMoves[c / 64] & (1L << (c % 64))) != 0L) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     // ////////////////////////// NFaState
-
-    private void re_arrange(NfaStateData data) {
-        List<NfaState> v = data.cloneAllStates();
-
-        if (data.getAllStateCount() != data.generatedStates()) {
-            throw new IllegalStateException("NFA state count changed while rearranging: "
-                    + data.getAllStateCount() + " states, but " + data.generatedStates()
-                    + " were generated");
-        }
-
-        for (NfaState tmp : v) {
-            if ((tmp.stateName != -1) && !tmp.dummy) {
-                data.setAllState(tmp.stateName, tmp);
-            }
-        }
-    }
-
-    private void FixStateSets(NfaStateData data) {
-        Hashtable<String, int[]> fixedSets = new Hashtable<>();
-        int[] tmp = new int[data.generatedStates()];
-        int i;
-
-        for (String s : data.stateSetsToFix.keySet()) {
-            int[] toFix = data.stateSetsToFix.get(s);
-            int cnt = 0;
-
-            // System.out.print("Fixing : ");
-            for (i = 0; i < toFix.length; i++) {
-                // System.out.print(toFix[i] + ", ");
-                if (toFix[i] != -1) {
-                    tmp[cnt++] = toFix[i];
-                }
-            }
-
-            int[] fixed = new int[cnt];
-            System.arraycopy(tmp, 0, fixed, 0, cnt);
-            fixedSets.put(s, fixed);
-            data.setNextStates(s, fixed);
-        }
-
-        for (i = 0; i < data.getAllStateCount(); i++) {
-            NfaState tmpState = data.getAllState(i);
-            int[] newSet;
-
-            if ((tmpState.next == null) || (tmpState.next.usefulEpsilonMoves == 0)) {
-                continue;
-            }
-
-            if ((newSet = fixedSets.get(tmpState.next.epsilonMovesString)) != null) {
-                tmpState.FixNextStates(newSet);
-            }
-        }
-    }
 
     private void dump_nfa_and_dfa(NfaStateData stateData, LinePrinter printer) {
         if (stateData.hasNFA && !stateData.isMixedState())
@@ -1685,8 +1561,11 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
      */
     protected final boolean isPlainSkip(NfaStateData data, KindInfo info, int i, int maxLongsReqd,
                                         char c) {
+        // Note the negation: the deleted local CanStartNfaUsingAscii was the boolean inverse of
+        // DfaBuilder.canStartNfaUsingAscii, and the old call sites compensated by using opposite
+        // senses. Both sites compute "generatedStates == 0 || no ASCII move for c".
         if (!((i == 0) && (c < 128) && info.hasFinalKindCnt()
-                && ((data.generatedStates() == 0) || CanStartNfaUsingAscii(data, c)))) {
+                && ((data.generatedStates() == 0) || !DfaBuilder.canStartNfaUsingAscii(data, c)))) {
             return false;
         }
 
@@ -2024,7 +1903,7 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> {
         for (i = 0; i < data.getMaxLen(); i++) {
             boolean startNfaNeeded = false;
             tab = data.getCharPosKind(i);
-            var keys = LexerGenerator.re_arrange(tab);
+            var keys = DfaBuilder.reArrange(tab);
 
             printMoveStringLiteralDfaSignature(printer, data, i, maxLongsReqd);
 
@@ -2109,7 +1988,7 @@ printDebugPossibleMatches(printer, data, i);
                             }
 
                             if (!data.isSubString((j * 64) + k)) {
-                                int stateSetName = GetStateSetForKind(data, i, (j * 64) + k);
+                                int stateSetName = DfaBuilder.getStateSetForKind(data, i, (j * 64) + k);
 
                                 if (stateSetName != -1) {
                                     printer.println("return jjStartNfaWithStates"
@@ -2493,7 +2372,7 @@ printDebugPossibleMatches(printer, data, i);
             data.global.init();
         }
 
-        re_arrange(data);
+        DfaBuilder.reArrange(data);
 
         for (i = 0; i < data.getAllStateCount(); i++) {
             var temp = data.getAllState(i);
@@ -2520,7 +2399,7 @@ printDebugPossibleMatches(printer, data, i);
         }
 
         if (!data.stateSetsToFix.isEmpty()) {
-            FixStateSets(data);
+            DfaBuilder.fixStateSets(data);
         }
 
         data.global.setKinds(data.getStateIndex(), kindsForStates);
@@ -2621,71 +2500,6 @@ printDebugPossibleMatches(printer, data, i);
             }
         }
         return nameSet[toRet];
-    }
-
-    private int AddCompositeStateSet(NfaStateData data, String stateSetString) {
-        Integer stateNameToReturn;
-
-        if ((stateNameToReturn = data.stateNameForComposite.get(stateSetString)) != null) {
-            return stateNameToReturn;
-        }
-
-        int toRet = 0;
-        int[] nameSet = data.getNextStates(stateSetString);
-
-        if (nameSet == null) {
-            throw new IllegalStateException(
-                    "No next states registered for the state set: " + stateSetString);
-        }
-
-        if (nameSet.length == 1) {
-            stateNameToReturn = nameSet[0];
-            data.stateNameForComposite.put(stateSetString, stateNameToReturn);
-            return nameSet[0];
-        }
-
-        for (int element : nameSet) {
-            if (element == -1) {
-                continue;
-            }
-
-            NfaState st = data.getIndexedState(element);
-            st.isComposite = true;
-            st.compositeStates = nameSet;
-        }
-
-        while ((toRet < nameSet.length) && ((data.getIndexedState(nameSet[toRet]).inNextOf > 1))) {
-            toRet++;
-        }
-
-        for (String s : data.compositeStateTable.keySet()) {
-            if (!s.equals(stateSetString) && NfaState.Intersect(data, stateSetString, s)) {
-                int[] other = data.compositeStateTable.get(s);
-
-                while ((toRet < nameSet.length) && (
-                        ((data.getIndexedState(nameSet[toRet]).inNextOf > 1))
-                                || (NfaState.ElemOccurs(nameSet[toRet], other) >= 0))) {
-                    toRet++;
-                }
-            }
-        }
-
-        int tmp;
-
-        if (toRet >= nameSet.length) {
-            if (data.dummyStateIndex == -1) {
-                tmp = data.dummyStateIndex = data.generatedStates();
-            } else {
-                tmp = ++data.dummyStateIndex;
-            }
-        } else {
-            tmp = nameSet[toRet];
-        }
-
-        stateNameToReturn = tmp;
-        data.stateNameForComposite.put(stateSetString, stateNameToReturn);
-        data.compositeStateTable.put(stateSetString, nameSet);
-        return tmp;
     }
 
     protected final void printActionToken(LinePrinter printer, Action action) {

@@ -3,7 +3,6 @@
 
 package org.hivevm.cc.lexer;
 
-import org.hivevm.cc.generator.LexerGenerator;
 import org.hivevm.cc.lexer.NfaStateData.KindInfo;
 
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ import java.util.Vector;
 /**
  * Computes DFA/NFA move tables and prepares the code-generation data structures.
  */
-class DfaBuilder {
+public class DfaBuilder {
 
     /**
      * Prepares DFA code data for a single lexer state (charPosKind → skip/token tables).
@@ -560,7 +559,7 @@ class DfaBuilder {
     // State set helpers
     // -----------------------------------------------------------------------
 
-    private static void reArrange(NfaStateData data) {
+    public static void reArrange(NfaStateData data) {
         List<NfaState> v = data.cloneAllStates();
 
         if (data.getAllStateCount() != data.generatedStates()) {
@@ -576,11 +575,32 @@ class DfaBuilder {
         }
     }
 
-    private static String[] reArrange(Hashtable<String, ?> tab) {
-        return LexerGenerator.re_arrange(tab);
+    public static <T> String[] reArrange(Hashtable<String, T> tab) {
+        var ret = new String[tab.size()];
+        int cnt = 0;
+
+        for (var s : tab.keySet()) {
+            int i = 0, j;
+            char c = s.charAt(0);
+
+            while ((i < cnt) && (ret[i].charAt(0) < c)) {
+                i++;
+            }
+
+            if (i < cnt) {
+                for (j = cnt - 1; j >= i; j--) {
+                    ret[j + 1] = ret[j];
+                }
+            }
+
+            ret[i] = s;
+            cnt++;
+        }
+
+        return ret;
     }
 
-    private static void fixStateSets(NfaStateData data) {
+    public static void fixStateSets(NfaStateData data) {
         Hashtable<String, int[]> fixedSets = new Hashtable<>();
         int[] tmp = new int[data.generatedStates()];
         int i;
@@ -620,7 +640,7 @@ class DfaBuilder {
         return data.stateNameForComposite.get(stateSetString);
     }
 
-    private static int getStateSetForKind(NfaStateData data, int pos, int kind) {
+    public static int getStateSetForKind(NfaStateData data, int pos, int kind) {
         if (data.isMixedState() || (data.generatedStates() == 0)) {
             return -1;
         }
@@ -647,7 +667,7 @@ class DfaBuilder {
         return -1;
     }
 
-    private static boolean canStartNfaUsingAscii(NfaStateData data, char c) {
+    public static boolean canStartNfaUsingAscii(NfaStateData data, char c) {
         if (c >= 128) {
             throw new IllegalStateException(
                     "canStartNfaUsingAscii called with a non-ASCII character: " + (int) c);

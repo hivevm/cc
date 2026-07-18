@@ -6,6 +6,7 @@ package org.hivevm.cc.generator.rust;
 import org.hivevm.cc.Encoding;
 import org.hivevm.cc.Language;
 import org.hivevm.cc.generator.LexerGenerator;
+import org.hivevm.cc.lexer.DfaBuilder;
 import org.hivevm.cc.lexer.LexerData;
 import org.hivevm.cc.lexer.NfaState;
 import org.hivevm.cc.lexer.NfaStateData;
@@ -557,7 +558,7 @@ class RustLexerGenerator extends LexerGenerator {
         for (i = 0; i < data.getMaxLen(); i++) {
             boolean startNfaNeeded = false;
             tab = data.getCharPosKind(i);
-            var keys = LexerGenerator.re_arrange(tab);
+            var keys = DfaBuilder.reArrange(tab);
 
             printMoveStringLiteralDfaSignature(printer, data, i, maxLongsReqd);
 
@@ -643,7 +644,7 @@ printDebugPossibleMatches(printer, data, i);
                             }
 
                             if (!data.isSubString((j * 64) + k)) {
-                                int stateSetName = GetStateSetForKind(data, i, (j * 64) + k);
+                                int stateSetName = DfaBuilder.getStateSetForKind(data, i, (j * 64) + k);
 
                                 if (stateSetName != -1) {
                                     printer.println("return self.jjStartNfaWithStates"
