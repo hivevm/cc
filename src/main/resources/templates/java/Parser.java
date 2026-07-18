@@ -1,4 +1,7 @@
 package __JAVA_PACKAGE__;
+//@if(TOKEN_CLASS)
+import __TOKEN_CLASS__;
+//@fi
 
 //@foreach(JAVA_IMPORTS)
 import __JAVA_IMPORTS_VALUE__;

@@ -41,7 +41,11 @@ public class JavaGenerator extends GeneratorProvider {
             JavaTemplate.STREAM_PROVIDER.render(context.options());
             JavaTemplate.CHAR_STREAM.render(context.options());
 
-            JavaTemplate.TOKEN.render(context.options());
+            // When an external token class is configured (TOKEN_CLASS), the parser imports it instead
+            // of emitting its own Token (ADR-0013).
+            if (context.options().getTokenClass().isEmpty()) {
+                JavaTemplate.TOKEN.render(context.options());
+            }
             JavaTemplate.TOKEN_EXCEPTION.render(context.options());
             JavaTemplate.PARSER_EXCEPTION.render(context.options());
         };

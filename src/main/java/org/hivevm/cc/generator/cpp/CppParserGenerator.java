@@ -20,7 +20,7 @@ import org.hivevm.cc.model.ZeroOrMore;
 import org.hivevm.cc.model.ZeroOrOne;
 import org.hivevm.cc.parser.Options;
 import org.hivevm.cc.parser.ParserConstants;
-import org.hivevm.cc.parser.Token;
+import org.hivevm.core.Token;
 import org.hivevm.source.Context;
 import org.hivevm.source.LinePrinter;
 

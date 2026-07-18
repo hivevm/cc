@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 package org.hivevm.cc.parser.jjtree;
+import org.hivevm.core.Token;
 
 import org.hivevm.cc.parser.JavaCCErrors;
 

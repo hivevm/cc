@@ -4,7 +4,7 @@
 package org.hivevm.cc.model;
 
 import org.hivevm.cc.parser.RegExprSpec;
-import org.hivevm.cc.parser.Token;
+import org.hivevm.core.Token;
 
 import java.util.ArrayList;
 import java.util.List;

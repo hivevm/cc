@@ -7,7 +7,7 @@ import org.hivevm.cc.Encoding;
 import org.hivevm.cc.Language;
 import org.hivevm.cc.model.NodeScope;
 import org.hivevm.cc.parser.ParserConstants;
-import org.hivevm.cc.parser.Token;
+import org.hivevm.core.Token;
 import org.hivevm.source.LinePrinter;
 
 public abstract class CodeGenerator<D> {

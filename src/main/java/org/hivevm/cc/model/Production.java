@@ -3,7 +3,7 @@
 
 package org.hivevm.cc.model;
 
-import org.hivevm.cc.parser.Token;
+import org.hivevm.core.Token;
 
 public class Production {
 

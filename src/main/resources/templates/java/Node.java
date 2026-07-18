@@ -1,4 +1,7 @@
 package __JAVA_PACKAGE__;
+//@if(TOKEN_CLASS)
+import __TOKEN_CLASS__;
+//@fi
 
 //@if(NODE_EXTENDS)
 public class Node extends __NODE_EXTENDS__ {

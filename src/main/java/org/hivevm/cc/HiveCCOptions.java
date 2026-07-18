@@ -48,6 +48,7 @@ public class HiveCCOptions implements Options {
         temp.add(new OptionInfo(HiveCC.JJPARSER_FORCE_LA_CHECK, Boolean.FALSE));
         temp.add(new OptionInfo(HiveCC.JJPARSER_CACHE_TOKENS, Boolean.FALSE));
         temp.add(new OptionInfo(HiveCC.JJPARSER_KEEP_LINE_COLUMN, Boolean.TRUE));
+        temp.add(new OptionInfo(HiveCC.JJPARSER_TOKEN_CLASS, ""));
 
         temp.add(new OptionInfo(HiveCC.JJPARSER_OUTPUT_DIRECTORY, "."));
         temp.add(new OptionInfo(HiveCC.JJPARSER_CODEGENERATOR, HiveCCOptions.OUTPUT_LANGUAGE_JAVA));

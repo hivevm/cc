@@ -14,7 +14,7 @@ import org.hivevm.cc.model.RExpression;
 import org.hivevm.cc.model.RStringLiteral;
 import org.hivevm.cc.model.TokenKind;
 import org.hivevm.cc.parser.JavaCCErrors;
-import org.hivevm.cc.parser.Token;
+import org.hivevm.core.Token;
 import org.hivevm.source.Context;
 import org.hivevm.source.LinePrinter;
 import org.hivevm.source.SourceProvider;

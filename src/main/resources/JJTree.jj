@@ -8,7 +8,8 @@ options {
   VISITOR: true,
   VISITOR_DATA_TYPE: "ASTWriter",
   JAVA_PACKAGE: "org.hivevm.cc.parser.jjtree",
-  BASE_PARSER: "ASTParser"
+  BASE_PARSER: "ASTParser",
+  TOKEN_CLASS: "org.hivevm.core.Token"
 }
 
 /************************************************

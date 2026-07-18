@@ -3,7 +3,8 @@ grammar JavaCC;
 options {
   JAVA_PACKAGE: "org.hivevm.cc.parser",
   JAVA_IMPORTS: "java.util.ArrayList,java.util.List,org.hivevm.cc.model.*",
-  BASE_PARSER: "AbstractJavaCCParser"
+  BASE_PARSER: "AbstractJavaCCParser",
+  TOKEN_CLASS: "org.hivevm.core.Token"
 }
 
 /************************************************

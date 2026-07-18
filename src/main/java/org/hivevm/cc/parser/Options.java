@@ -132,6 +132,16 @@ public interface Options extends Environment {
     }
 
     /**
+     * The fully-qualified name of an external token class the generated parser should use instead of
+     * emitting its own {@code Token}. Empty (the default) means the parser emits and uses its own
+     * self-contained {@code Token}. Set for HiveVM CC's self-hosted build so its parser feeds
+     * {@code org.hivevm.core.Token} to the shared model (ADR-0013).
+     */
+    default String getTokenClass() {
+        return stringValue(HiveCC.JJPARSER_TOKEN_CLASS);
+    }
+
+    /**
      * Get defined parser recursion depth limit.
      */
     default int getDepthLimit() {

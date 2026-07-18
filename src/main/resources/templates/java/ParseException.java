@@ -1,4 +1,7 @@
 package __JAVA_PACKAGE__;
+//@if(TOKEN_CLASS)
+import __TOKEN_CLASS__;
+//@fi
 
 /**
  * This exception is thrown when parse errors are encountered. You can explicitly create objects of

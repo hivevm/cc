@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 package org.hivevm.cc.parser;
+import org.hivevm.core.Token;
 
 import org.hivevm.cc.model.Action;
 import org.hivevm.cc.model.RExpression;
