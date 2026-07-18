@@ -107,13 +107,14 @@ class StringLiteralAnalyzer {
             }
 
             for (int j = 0; j < data.maxStrKind; j++) {
-                if ((j != i) && (data.global.getState(j) == data.getStateIndex()) && (
-                        (data.global.getImage(j)) != null)) {
-                    if (data.global.getImage(j).indexOf(image) == 0) {
+                String imageJ;
+                if ((j != i) && (data.global.getState(j) == data.getStateIndex())
+                        && ((imageJ = data.global.getImage(j)) != null)) {
+                    if (imageJ.indexOf(image) == 0) {
                         data.subString[i] = true;
                         data.subStringAtPos[image.length() - 1] = true;
                         break;
-                    } else if (data.ignoreCase() && startsWithIgnoreCase(data.global.getImage(j), image)) {
+                    } else if (data.ignoreCase() && startsWithIgnoreCase(imageJ, image)) {
                         data.subString[i] = true;
                         data.subStringAtPos[image.length() - 1] = true;
                         break;
