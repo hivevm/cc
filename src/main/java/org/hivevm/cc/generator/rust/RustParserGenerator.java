@@ -27,6 +27,7 @@ import org.hivevm.source.LinePrinter;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Implements the {@link ParserGenerator} for the RUST language.
@@ -521,10 +522,15 @@ class RustParserGenerator extends ParserGenerator {
         return to_snake_case(p.getLhs());
     }
 
+    // Compiled once instead of on every conversion (to_snake_case is called per expansion, often
+    // repeatedly for the same name).
+    private static final Pattern SNAKE_ACRONYM = Pattern.compile("([A-Z])(?=[A-Z])");
+    private static final Pattern SNAKE_BOUNDARY = Pattern.compile("([a-z])([A-Z])");
+
     private static String to_snake_case(String name) {
-        return name.replaceAll("([A-Z])(?=[A-Z])", "$1_")
-                .replaceAll("([a-z])([A-Z])", "$1_$2")
-                .toLowerCase();
+        String s = SNAKE_ACRONYM.matcher(name).replaceAll("$1_");
+        s = SNAKE_BOUNDARY.matcher(s).replaceAll("$1_$2");
+        return s.toLowerCase();
     }
 
     @Override

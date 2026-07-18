@@ -201,10 +201,7 @@ class ParserBuilder {
             } else if ((la.getAmount() == 1) && (la.getActionTokens().isEmpty())) {
                 // Special optimal processing when the lookahead is exactly 1, and there
                 // is no semantic lookahead.
-                boolean[] firstSet = new boolean[data.getTokenCount()];
-                for (int i = 0; i < data.getTokenCount(); i++) {
-                    firstSet[i] = false;
-                }
+                boolean[] firstSet = new boolean[data.getTokenCount()]; // already all-false
 
                 // jj2LA is set to false at the beginning of the containing "if" statement.
                 // It is checked immediately after the end of the same statement to determine

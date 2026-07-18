@@ -8,6 +8,7 @@ import org.hivevm.cc.generator.NodeData;
 import org.hivevm.cc.generator.NodeGenerator;
 import org.hivevm.cc.model.NodeScope;
 import org.hivevm.cc.parser.Options;
+import org.hivevm.source.Context;
 import org.hivevm.source.Template;
 
 import java.util.Set;
@@ -73,14 +74,20 @@ class CppNodeGenerator implements NodeGenerator {
         CppTemplate.VISITOR.render(options, context.getParserName());
     }
 
+    /**
+     * Sets the three visitor-type options on a render context, computing the return type once
+     * instead of the three repeated {@code getVisitorReturnType} lookups the call sites used to do.
+     */
+    private static void applyVisitorTypes(Context optionMap, Options context) {
+        var returnType = CppNodeGenerator.getVisitorReturnType(context);
+        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_TYPE, returnType);
+        optionMap.set(HiveCC.JJTREE_VISITOR_DATA_TYPE, CppNodeGenerator.getVisitorArgumentType(context));
+        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_VOID, returnType.equals("void"));
+    }
+
     private void generateNode(Options context) {
         var optionMap = Template.newContext(context);
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_TYPE,
-                CppNodeGenerator.getVisitorReturnType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_DATA_TYPE,
-                CppNodeGenerator.getVisitorArgumentType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_VOID,
-                CppNodeGenerator.getVisitorReturnType(context).equals("void"));
+        CppNodeGenerator.applyVisitorTypes(optionMap, context);
 
         CppTemplate.NODE.render(optionMap);
     }
@@ -93,12 +100,7 @@ class CppNodeGenerator implements NodeGenerator {
             }
 
             var options = Template.newContext(context);
-            options.set(HiveCC.JJTREE_VISITOR_RETURN_TYPE,
-                    CppNodeGenerator.getVisitorReturnType(context));
-            options.set(HiveCC.JJTREE_VISITOR_DATA_TYPE,
-                    CppNodeGenerator.getVisitorArgumentType(context));
-            options.set(HiveCC.JJTREE_VISITOR_RETURN_VOID,
-                    CppNodeGenerator.getVisitorReturnType(context).equals("void"));
+            CppNodeGenerator.applyVisitorTypes(options, context);
             options.set(HiveCC.JJTREE_NODE_TYPE, nodeType);
             options.set(HiveCC.JJTREE_NODE_CLASS, CppNodeGenerator.nodeClass(context));
 
@@ -118,24 +120,14 @@ class CppNodeGenerator implements NodeGenerator {
 
     private void generateNodeInterface(Options context) {
         var optionMap = Template.newContext(context);
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_TYPE,
-                CppNodeGenerator.getVisitorReturnType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_DATA_TYPE,
-                CppNodeGenerator.getVisitorArgumentType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_VOID,
-                CppNodeGenerator.getVisitorReturnType(context).equals("void"));
+        CppNodeGenerator.applyVisitorTypes(optionMap, context);
 
         CppTemplate.NODE_H.render(optionMap);
     }
 
     private void generateTree(Options context) {
         var optionMap = Template.newContext(context);
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_TYPE,
-                CppNodeGenerator.getVisitorReturnType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_DATA_TYPE,
-                CppNodeGenerator.getVisitorArgumentType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_VOID,
-                CppNodeGenerator.getVisitorReturnType(context).equals("void"));
+        CppNodeGenerator.applyVisitorTypes(optionMap, context);
         optionMap.set(HiveCC.JJTREE_NODE_TYPE, "Tree");
 
         CppTemplate.TREE.render(optionMap);
@@ -143,12 +135,7 @@ class CppNodeGenerator implements NodeGenerator {
 
     private void generateOneTreeInterface(Options context, Set<String> nodesToGenerate) {
         var optionMap = Template.newContext(context);
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_TYPE,
-                CppNodeGenerator.getVisitorReturnType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_DATA_TYPE,
-                CppNodeGenerator.getVisitorArgumentType(context));
-        optionMap.set(HiveCC.JJTREE_VISITOR_RETURN_VOID,
-                CppNodeGenerator.getVisitorReturnType(context).equals("void"));
+        CppNodeGenerator.applyVisitorTypes(optionMap, context);
         optionMap.add("NODES", nodesToGenerate).set("NODES_NAME", v -> v);
 
         CppTemplate.TREE_ONE.render(optionMap, context.getParserName());
