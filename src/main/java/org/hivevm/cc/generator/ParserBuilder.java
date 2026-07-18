@@ -67,8 +67,8 @@ class ParserBuilder {
             }
         }
 
-        for (Expansion e : data.getExpansions()) {
-            buildPhase3Routine(data, e, data.getCount(e));
+        for (var e : data.getExpansionCounts()) {
+            buildPhase3Routine(data, e.getKey(), e.getValue());
         }
 
         return data;
