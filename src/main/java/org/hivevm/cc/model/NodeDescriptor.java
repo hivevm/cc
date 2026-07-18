@@ -3,8 +3,6 @@
 
 package org.hivevm.cc.model;
 
-import org.hivevm.cc.parser.Options;
-
 public interface NodeDescriptor {
 
     default String getNodeId() {
@@ -46,9 +44,9 @@ public interface NodeDescriptor {
         return isMulti ? "AST" + name : "Node";
     }
 
-    static String getNodeClass(String name, Options options) {
-        var type = NodeDescriptor.getNodeType(name, options.getMulti());
-        var isType = options.getNodeClass().isEmpty() || options.getMulti();
-        return isType ? type : options.getNodeClass();
+    static String getNodeClass(String name, boolean isMulti, String configuredNodeClass) {
+        var type = NodeDescriptor.getNodeType(name, isMulti);
+        var isType = configuredNodeClass.isEmpty() || isMulti;
+        return isType ? type : configuredNodeClass;
     }
 }
