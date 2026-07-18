@@ -80,7 +80,7 @@ public abstract class ParserGenerator extends CodeGenerator<ParserData> {
         options.set("DUMP_NORMALPRODUCTIONS", w ->
                 data.getProductions().forEach(n -> generatePhase1(n, w, data)));
         options.set("DUMP_LOOKAHEADS", w ->
-                data.getLoakaheads().forEach(e -> generate_phase2(e.getLaExpansion(), w, data)));
+                data.getLookaheads().forEach(e -> generate_phase2(e.getLaExpansion(), w, data)));
         options.set("DUMP_EXPANSIONS", w ->
                 data.getExpansionCounts().forEach(e -> generate_phase3_routine(data, e.getKey(), e.getValue(), w)));
 
@@ -203,7 +203,7 @@ public abstract class ParserGenerator extends CodeGenerator<ParserData> {
                 // In previous line, the "throw" never throws an exception since the
                 // evaluation of jj_consume_token(-1) causes ParseException to be
                 // thrown first.
-                Lookahead[] conds = data.getLoakaheads(e);
+                Lookahead[] conds = data.getLookaheads(e);
                 print_lookahead_checker(printer, data, scope, conds, (p, i) -> {
                     if (i == e_nrw.getChoices().size()) {
                         generate_phase1_choice(printer);
@@ -218,7 +218,7 @@ public abstract class ParserGenerator extends CodeGenerator<ParserData> {
                 e_nrw.getUnits().forEach(exp -> generate_phase1_expansion(data, exp, scope, printer));
             }
             case ZeroOrOne e_nrw -> {
-                Lookahead[] conds = data.getLoakaheads(e);
+                Lookahead[] conds = data.getLookaheads(e);
                 print_lookahead_checker(printer, data, scope, conds,
                         (p, i) -> {
                             if (i == 0) {
@@ -233,7 +233,7 @@ public abstract class ParserGenerator extends CodeGenerator<ParserData> {
                 int labelIndex = nextLabelIndex();
                 generate_phase1_more(labelIndex, printer);
                 generate_phase1_expansion(data, e_nrw.getExpansion(), scope, printer);
-                Lookahead[] conds = data.getLoakaheads(e);
+                Lookahead[] conds = data.getLookaheads(e);
                 print_lookahead_checker(printer, data, scope, conds,
                         (p, i) -> print_phase1_more_end(labelIndex, p, i));
                 printer.outdent();
@@ -245,7 +245,7 @@ public abstract class ParserGenerator extends CodeGenerator<ParserData> {
                 printer.println();
                 int labelIndex = nextLabelIndex();
                 generate_phase1_more(labelIndex, printer);
-                Lookahead[] conds = data.getLoakaheads(e);
+                Lookahead[] conds = data.getLookaheads(e);
                 print_lookahead_checker(printer, data, scope, conds,
                         (p, i) -> print_phase1_more_end(labelIndex, p, i));
                 generate_phase1_expansion(data, e_nrw.getExpansion(), scope, printer);
