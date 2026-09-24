@@ -179,7 +179,6 @@ Token * __PARSER_NAME__TokenManager::getNextToken() {
 			matchedToken->specialToken() = specialToken;
 //@fi
 			//@invoke(DUMP_GET_NEXT_TOKEN)
-//@if(MAX_LEX_STATES)
 		}
 		int error_line = reader->getEndLine();
 		int error_column = reader->getEndColumn();
@@ -199,7 +198,6 @@ Token * __PARSER_NAME__TokenManager::getNextToken() {
 			error_after = curPos <= 1 ? JJEMPTY : reader->getImage();
 		}
 		errorHandler->lexicalError(EOFSeen, curLexState, error_line, error_column, error_after, curChar);
-//@fi
 	}
 }
 

@@ -18,7 +18,6 @@ import org.hivevm.waggle.model.NormalProduction;
 import org.hivevm.waggle.grammar.Token;
 import org.hivevm.source.LinePrinter;
 
-import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -59,14 +58,6 @@ class JavaParserGenerator extends ParserGenerator {
             printTokens(p.getParameterListTokens(), null, printer);
         }
         printer.print(") throws ParseException");
-
-        for (List<Token> name : p.getThrowsList()) {
-            printer.print(", ");
-            for (Token token : name) {
-                t = token;
-                printer.print(t.image);
-            }
-        }
 
         printer.print(" {");
         return null;
@@ -113,17 +104,7 @@ class JavaParserGenerator extends ParserGenerator {
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
+    @Override
     protected void generate_phase2(Expansion e, LinePrinter printer, ParserData data) {
         printer.println("private boolean jj_2" + internalName(e) + "(int xla) {");
         printer.indent();
@@ -155,6 +136,7 @@ class JavaParserGenerator extends ParserGenerator {
         printer.println();
     }
 
+    @Override
     protected void generate_phase3_routine(ParserData data, Expansion e, int count, LinePrinter printer) {
         if (internalName(e).startsWith("jj_scan_token"))
             return;
@@ -176,7 +158,6 @@ class JavaParserGenerator extends ParserGenerator {
             printer.indent();
         }
 
-        boolean xsp_declared = false;
         Expansion jj3_expansion = null;
         if (data.getDebugLookahead() && (e.parent() instanceof NormalProduction np)) {
             if (data.getErrorReporting()) {
@@ -187,7 +168,7 @@ class JavaParserGenerator extends ParserGenerator {
             jj3_expansion = e;
         }
 
-        phase3().emit(data, jj3_expansion, xsp_declared, e, count, printer);
+        phase3().emit(data, jj3_expansion, e, count, printer);
 
         printer.println(genReturn(jj3_expansion, false, data));
         if (data.getDepthLimit() > 0) {

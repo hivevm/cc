@@ -62,6 +62,21 @@ class TemplateTest {
         assertFalse(out.contains("yes"), out);
     }
 
+    /** An //@else without an //@if is a template error, not an EmptyStackException. */
+    @Test
+    void elseOutsideAnIfIsATemplateError() {
+        assertThrows(TemplateException.class, () -> render("a\n//@else\nb\n", Map.of()));
+        assertThrows(TemplateException.class,
+                () -> render("//@foreach(LIST)\n//@else\n//@end\n", Map.of("LIST", 1)));
+    }
+
+    /** The line after a directive is text, even when it starts with "(": it was taken as a parameter. */
+    @Test
+    void aLineStartingWithAParenthesisAfterElseIsKept() {
+        var out = render("//@if(FLAG)\nyes\n//@else\n(void) x;\n//@fi\n", Map.of("FLAG", false));
+        assertTrue(out.contains("(void) x;"), out);
+    }
+
     /**
      * Under a Turkish default locale {@code "if".toUpperCase()} is {@code "İF"}, so every
      * {@code //@if} was an unknown directive and no template could be rendered.
