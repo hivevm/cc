@@ -159,9 +159,10 @@ to be discovered.
   decoding yet, so a grammar for either target that sets it is rejected
   ([ADR-0029](docs/adr/0029-one-character-model-across-targets.md)).
 
-* **Characters beyond U+FFFF are not verified for Rust.** Literals, character lists and ranges denote
-  code points in every target (ADR-0029), and the Java and C++ lexers are run on such input in the
-  tests. The Rust lexer gets the same automaton, but no Rust toolchain was available to run it.
+* **The Rust parser does not compile yet; the Rust lexer does.** The parser template still carries
+  unported Java (in comments and in code), so for Rust only the token manager is usable today. The
+  lexer is compiled and run in the tests, where it reads the same tokens as the Java lexer, and
+  reports a lexical error by panicking with the Java lexer's message.
 
 
 ## Example

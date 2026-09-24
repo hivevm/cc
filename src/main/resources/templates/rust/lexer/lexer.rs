@@ -333,7 +333,8 @@ impl<'a> Lexer<'a> {
 //@fi
 //@if(CHECK_NADD_STATES_UNARY_NEEDED)
 
-	fn jj_check_n_add_states(&mut self, start: usize) {
+	// Java and C++ overload jjCheckNAddStates; Rust cannot, so the two-state form has its own name.
+	fn jj_check_n_add_state_pair(&mut self, start: usize) {
 		self.jj_check_n_add(JJNEXT_STATES[start]);
 		self.jj_check_n_add(JJNEXT_STATES[start + 1]);
 	}

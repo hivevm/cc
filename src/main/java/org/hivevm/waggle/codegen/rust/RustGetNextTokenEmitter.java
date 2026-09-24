@@ -244,7 +244,18 @@ class RustGetNextTokenEmitter extends GetNextTokenEmitter {
                         error_after = self.input_stream.get_image();
                     }
                 }
-                return Token::empty();
+                // This used to return Token::empty(), which is <EOF>: the rest of the input was
+                // silently dropped. The message is the Java lexer's.
+                let encountered = if eof_seen {
+                    String::from("<EOF> ")
+                } else {
+                    let c = char::from_u32(self.cur_char).unwrap_or(char::REPLACEMENT_CHARACTER);
+                    format!("\\"{}\\" ({}), ", c.escape_default(), self.cur_char)
+                };
+                panic!(
+                    "Lexical error at line {}, column {}.  Encountered: {}after : \\"{}\\"",
+                    error_line, error_column, encountered, error_after.escape_default()
+                );
                 """);
     }
 

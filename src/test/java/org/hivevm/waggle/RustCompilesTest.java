@@ -12,12 +12,14 @@ import org.hivevm.waggle.api.ParserBuilder;
 import org.hivevm.waggle.api.Language;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -341,6 +343,200 @@ class RustCompilesTest {
 
         assertEquals(0, process.waitFor(), "the generated Rust does not compile:\n" + output);
     }
+
+    /** What a generated Rust program printed, and how it ended. */
+    record Run(String out, String err, int status) {
+    }
+
+    /** Builds the lexer of {@code grammar} with a main() that prints every token and runs it on {@code input}. */
+    static Run runLexer(String grammar, String module, Path dir, String input)
+            throws IOException, InterruptedException {
+        assumeTrue(RustCompilesTest.hasCompiler(), "no Rust compiler on PATH");
+
+        var source = dir.resolve("Grammar.waggle");
+        Files.writeString(source, grammar);
+        var target = dir.resolve("rust");
+        new ParserBuilder()
+                .setLanguage(Language.RUST)
+                .setParserFile(source.toFile())
+                .setTargetDir(target.toFile())
+                .build().parse();
+
+        Files.writeString(target.resolve(module).resolve("mod.rs"),
+                "pub mod token;\npub mod charstream;\npub mod parserconstants;\npub mod lexer;\n");
+        var literal = new StringBuilder();
+        input.codePoints().forEach(cp -> literal.append(String.format("\\u{%x}", cp)));
+        Files.writeString(target.resolve("main.rs"), """
+                #![allow(warnings)]
+                mod %s;
+                use %s::lexer::Lexer;
+
+                fn main() {
+                    let mut lexer = Lexer::new("%s");
+                    loop {
+                        let t = lexer.get_next_token();
+                        if t.kind == 0 {
+                            break;
+                        }
+                        print!("{}:{};", t.kind, t.image);
+                    }
+                }
+                """.formatted(module, module, literal));
+
+        var build = new ProcessBuilder("rustc", "--edition", "2021", "-o", "program", "main.rs")
+                .directory(target.toFile()).redirectErrorStream(true).start();
+        var buildOutput = new String(build.getInputStream().readAllBytes());
+        assertEquals(0, build.waitFor(), "the generated Rust does not build:\n" + buildOutput);
+
+        // Into files, and bounded in time: a lexer that never reaches the end of its input prints
+        // tokens until it is stopped.
+        var outFile = target.resolve("out.txt");
+        var errFile = target.resolve("err.txt");
+        var program = new ProcessBuilder(target.resolve("program").toString())
+                .directory(target.toFile())
+                .redirectOutput(outFile.toFile()).redirectError(errFile.toFile()).start();
+        if (!program.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)) {
+            program.destroyForcibly().waitFor();
+            return new Run(head(outFile), "did not end within 20 seconds", -1);
+        }
+        return new Run(head(outFile), head(errFile), program.exitValue());
+    }
+
+    private static String head(Path file) throws IOException {
+        try (var in = Files.newInputStream(file)) {
+            return new String(in.readNBytes(1 << 20), StandardCharsets.UTF_8);
+        }
+    }
+
+    /** Input the grammar does not match is a lexical error. The Rust lexer returned end of input. */
+    @Test
+    void aLexicalErrorIsNotTheEndOfInput(@TempDir Path dir) throws IOException, InterruptedException {
+        var run = runLexer(WORDS, "words", dir, "ab $cd");
+        assertEquals("2:ab;", run.out());
+        assertTrue(run.status() != 0 && run.err().contains("Lexical error at line 1, column 4"),
+                run.status() + ": " + run.err());
+    }
+
+    /** The character stream refills a 4096-character buffer; it used to start over from the top. */
+    @Test
+    void aLongInputIsReadToTheEnd(@TempDir Path dir) throws IOException, InterruptedException {
+        var run = runLexer(WORDS, "words", dir, "ab ".repeat(2000) + "cd");
+        assertEquals(0, run.status(), run.err());
+        assertEquals("2:ab;".repeat(2000) + "2:cd;", run.out());
+    }
+
+    /** The grammar and input of GeneratedLexerTest, read the same way in Rust (ADR-0029). */
+    @Test
+    void charactersBeyondTheBmpAreOneCharacter(@TempDir Path dir)
+            throws IOException, InterruptedException {
+        var run = runLexer(GeneratedLexerTest.BEYOND_BMP, "sup", dir, GeneratedLexerTest.BEYOND_BMP_INPUT);
+        assertEquals(0, run.status(), run.err());
+        assertEquals("5:a;2:\uD83D\uDE00;5:b;3:\uD801\uDC28;4:\uD83D\uDE01;4:\uFFFD;5:ab\uD801\uDC00c;",
+                run.out());
+    }
+
+    /**
+     * The shared NFA emitter writes Java's "break" to leave a case. In a Rust match arm it left the
+     * loop over the whole state set, so a state that did not move dropped the others: "90" lexed as
+     * "9" and "0", and "0x1f" not at all.
+     */
+    @Test
+    void everyStateOfTheSetMoves(@TempDir Path dir) throws IOException, InterruptedException {
+        var run = runLexer("""
+                grammar Num;
+
+                options {
+                  JAVA_PACKAGE: "org.example"
+                }
+
+                Input = ( <NUM> | <HEX> | <ID> )* <EOF> ;
+
+                SKIP = " " ;
+
+                TOKEN =
+                  < NUM: (["0"-"9"])+ ("." (["0"-"9"])*)? >
+                | < HEX: "0x" (["0"-"9", "a"-"f"])+ >
+                | < ID: (["a"-"z"])+ >
+                ;
+                """, "num", dir, "90 1.5 0x1f ab");
+        assertEquals(0, run.status(), run.err());
+        assertEquals("2:90;2:1.5;3:0x1f;4:ab;", run.out());
+    }
+
+    /**
+     * A lexical state without string literals goes straight to the NFA, through a call that was
+     * spelled as in Java (jjMoveNfa_0) from a method taking &self: it did not compile.
+     */
+    @Test
+    void aLexerWithoutLiteralsRuns(@TempDir Path dir) throws IOException, InterruptedException {
+        var run = runLexer(WORDS.replace("SKIP = \" \" ;", "SKIP = < [\" \"] > ;"), "words", dir, "ab cd");
+        assertEquals(0, run.status(), run.err());
+        assertEquals("2:ab;2:cd;", run.out());
+    }
+
+    /** Beyond 128 literal kinds the DFA keeps three vectors, and wrote "| let" between them. */
+    @Test
+    void manyKeywordsRun(@TempDir Path dir) throws IOException, InterruptedException {
+        var keywords = new StringBuilder();
+        for (int i = 0; i < 150; i++) {
+            keywords.append(i == 0 ? "" : " | ").append("< K").append(i).append(": \"k").append(i).append("\" >");
+        }
+        var run = runLexer("""
+                grammar Many;
+
+                options {
+                  JAVA_PACKAGE: "org.example"
+                }
+
+                Input = ( <ID> )* <EOF> ;
+
+                SKIP = " " ;
+
+                TOKEN = %s | < ID: (["a"-"z", "0"-"9"])+ > ;
+                """.formatted(keywords), "many", dir, "k0 k149 k1490 k7");
+        assertEquals(0, run.status(), run.err());
+        assertEquals("2:k0;151:k149;152:k1490;9:k7;", run.out());
+    }
+
+    /**
+     * A lexical state that mixes case-sensitive and case-insensitive literals runs the NFA after
+     * the literal DFA and reads again what the DFA read ahead. Rust re-read the wrong number of
+     * characters and matched "aB", which the Java lexer rejects: B belongs to no token.
+     */
+    @Test
+    void aMixedStateReadsAgainWhatTheDfaReadAhead(@TempDir Path dir)
+            throws IOException, InterruptedException {
+        var run = runLexer("""
+                grammar Mixed;
+
+                options {
+                  JAVA_PACKAGE: "org.example"
+                }
+
+                Input = ( <ABCD> | <AB> | <ID> | <NUM> )* <EOF> ;
+
+                SKIP = " " ;
+
+                TOKEN = < ABCD: "abcdef" > | < ID: (["a"-"z"])+ ("1")? > | < NUM: (["0"-"9"])+ > ;
+
+                TOKEN [IGNORE_CASE] = < AB: "abc" > ;
+                """, "mixed", dir, "aBabc");
+        assertTrue(run.status() != 0 && run.err().contains("Lexical error"), run.out() + run.err());
+    }
+
+    private static final String WORDS = """
+            grammar Words;
+
+            options {
+              JAVA_PACKAGE: "org.example"
+            }
+
+            Input = ( <WORD> )* <EOF> ;
+
+            SKIP = " " ;
+
+            TOKEN = < WORD: (["a"-"z"])+ > ;
+            """;
 
     private static boolean hasCompiler() {
         try {
