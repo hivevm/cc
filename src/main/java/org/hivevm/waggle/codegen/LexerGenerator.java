@@ -54,7 +54,8 @@ public abstract class LexerGenerator extends CodeGenerator<LexerData> implements
         var options = OptionsContext.of(data.options());
         options.add(LexerGenerator.LOHI_BYTES, data.getLohiByte())
                 .set("LOHI_BYTES_INDEX", i -> i)
-                .set("LOHI_BYTES_VALUE", i -> getLohiBytes(data, i));
+                .set("LOHI_BYTES_VALUE", i -> getLohiBytes(data, i))
+                .set("LOHI_BYTES_LENGTH", i -> data.getLohiBytes(i).length);
         options.add(LexerGenerator.NON_ASCII_TABLE, data.getNonAsciiTableForMethod())
                 .set("NON_ASCII_TABLE_NAME", this::getNonAsciiMethod)
                 .set("NON_ASCII_TABLE_METHOD", (s, w) -> dumpNonAsciiMoveMethod(data, s, w));

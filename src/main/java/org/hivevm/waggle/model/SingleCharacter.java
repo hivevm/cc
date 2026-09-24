@@ -11,13 +11,14 @@ package org.hivevm.waggle.model;
  */
 public class SingleCharacter extends Production {
 
-    private final char ch;
+    /** A Unicode code point (ADR-0029). */
+    private final int ch;
 
-    public SingleCharacter(char c) {
+    public SingleCharacter(int c) {
         this.ch = c;
     }
 
-    public char getChar() {
+    public int getChar() {
         return this.ch;
     }
 }

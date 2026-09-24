@@ -32,29 +32,31 @@ class StringLiteralAnalyzer {
             data.maxStrKind = rstring.getOrdinal() + 1;
         }
 
-        if ((len = rstring.getImage().length()) > data.maxLen) {
+        // Positions are characters, not UTF-16 units (ADR-0029).
+        int[] chars = NfaVisitor.codePoints(rstring);
+        if ((len = chars.length) > data.maxLen) {
             data.maxLen = len;
         }
 
-        char c;
         for (int i = 0; i < len; i++) {
+            int c = chars[i];
             if (data.ignoreCase()) {
-                s = ("" + (c = rstring.getImage().charAt(i))).toLowerCase(Locale.ENGLISH);
+                s = Character.toString(c).toLowerCase(Locale.ENGLISH);
             } else {
-                s = "" + (c = rstring.getImage().charAt(i));
+                s = Character.toString(c);
             }
 
             insertKind(data, i, len, s, rstring.getOrdinal());
 
             if (!data.ignoreCase() && data.global.ignoreCase[rstring.getOrdinal()] && (c
                     != Character.toLowerCase(c))) {
-                s = ("" + rstring.getImage().charAt(i)).toLowerCase(Locale.ENGLISH);
+                s = Character.toString(c).toLowerCase(Locale.ENGLISH);
                 insertKind(data, i, len, s, rstring.getOrdinal());
             }
 
             if (!data.ignoreCase() && data.global.ignoreCase[rstring.getOrdinal()] && (c
                     != Character.toUpperCase(c))) {
-                s = ("" + rstring.getImage().charAt(i)).toUpperCase(Locale.ENGLISH);
+                s = Character.toString(c).toUpperCase(Locale.ENGLISH);
                 insertKind(data, i, len, s, rstring.getOrdinal());
             }
         }
@@ -106,7 +108,7 @@ class StringLiteralAnalyzer {
 
             if (data.isMixedState()) {
                 data.subString[i] = true;
-                data.subStringAtPos[image.length() - 1] = true;
+                data.subStringAtPos[image.codePointCount(0, image.length()) - 1] = true;
                 continue;
             }
 
@@ -116,11 +118,11 @@ class StringLiteralAnalyzer {
                         && ((imageJ = data.global.getImage(j)) != null)) {
                     if (imageJ.indexOf(image) == 0) {
                         data.subString[i] = true;
-                        data.subStringAtPos[image.length() - 1] = true;
+                        data.subStringAtPos[image.codePointCount(0, image.length()) - 1] = true;
                         break;
                     } else if (data.ignoreCase() && startsWithIgnoreCase(imageJ, image)) {
                         data.subString[i] = true;
-                        data.subStringAtPos[image.length() - 1] = true;
+                        data.subStringAtPos[image.codePointCount(0, image.length()) - 1] = true;
                         break;
                     }
                 }
@@ -132,12 +134,14 @@ class StringLiteralAnalyzer {
      * Returns true if s1 starts with s2 (ignoring case for each character).
      */
     private static boolean startsWithIgnoreCase(String s1, String s2) {
-        if (s1.length() < s2.length()) {
+        int[] chars1 = s1.codePoints().toArray();
+        int[] chars2 = s2.codePoints().toArray();
+        if (chars1.length < chars2.length) {
             return false;
         }
 
-        for (int i = 0; i < s2.length(); i++) {
-            char c1 = s1.charAt(i), c2 = s2.charAt(i);
+        for (int i = 0; i < chars2.length; i++) {
+            int c1 = chars1[i], c2 = chars2[i];
             if ((c1 != c2) && (Character.toLowerCase(c2) != c1) && (Character.toUpperCase(c2) != c1)) {
                 return false;
             }
@@ -260,7 +264,7 @@ class StringLiteralAnalyzer {
             Hashtable<String, KindInfo> tab = data.getCharPosKind(i);
             for (String key : NfaStateData.reArrange(tab)) {
                 KindInfo info = tab.get(key);
-                if (data.isPlainSkip(info, i, key.charAt(0)) || !info.hasFinalKindCnt()) {
+                if (data.isPlainSkip(info, i, key.codePointAt(0)) || !info.hasFinalKindCnt()) {
                     continue;
                 }
 

@@ -302,7 +302,7 @@ public class NfaStateData {
      * string-literal DFA: it is a plain SKIP — no action, no lexical state change — that the token
      * manager deals with elsewhere.
      */
-    public final boolean isPlainSkip(KindInfo info, int i, char c) {
+    public final boolean isPlainSkip(KindInfo info, int i, int c) {
         // Both call sites used to compute "generatedStates == 0 || no ASCII move for c" through
         // helpers of opposite sense; canStartNfaUsingAscii is the positive one.
         if (!((i == 0) && (c < 128) && info.hasFinalKindCnt()
@@ -361,7 +361,7 @@ public class NfaStateData {
      * A pure query over the finished DFA model; owned by the lexer layer so stage-5 generators read
      * it instead of recomputing DFA structure (ADR-0012).
      */
-    public boolean canStartNfaUsingAscii(char c) {
+    public boolean canStartNfaUsingAscii(int c) {
         if (c >= 128) {
             throw new IllegalStateException(
                     "canStartNfaUsingAscii called with a non-ASCII character: " + (int) c);
@@ -401,9 +401,9 @@ public class NfaStateData {
 
         for (String s : tab.keySet()) {
             int i = 0, j;
-            char c = s.charAt(0);
+            int c = s.codePointAt(0);
 
-            while ((i < cnt) && (ret[i].charAt(0) < c)) {
+            while ((i < cnt) && (ret[i].codePointAt(0) < c)) {
                 i++;
             }
 

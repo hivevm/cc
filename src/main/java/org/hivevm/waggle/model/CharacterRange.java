@@ -13,33 +13,34 @@ package org.hivevm.waggle.model;
 public class CharacterRange extends Production {
 
     /**
-     * The leftmost and the rightmost characters in this character range.
+     * The leftmost and the rightmost characters in this character range, as Unicode code points
+     * (ADR-0029).
      */
-    private char right;
+    private int right;
 
-    private char left;
+    private int left;
 
     // An inverted user range (left > right) is caught and reported earlier, in the parser layer
     // (AbstractGrammarParser#character_descriptor_assign clamps the right end); ranges built here are
     // always well-formed, so the model performs no reporting of its own (ADR-0013).
-    public CharacterRange(char l, char r) {
+    public CharacterRange(int l, int r) {
         setLeft(l);
         setRight(r);
     }
 
-    public void setLeft(char left) {
+    public void setLeft(int left) {
         this.left = left;
     }
 
-    public char getLeft() {
+    public int getLeft() {
         return this.left;
     }
 
-    public void setRight(char right) {
+    public void setRight(int right) {
         this.right = right;
     }
 
-    public char getRight() {
+    public int getRight() {
         return this.right;
     }
 }

@@ -218,16 +218,13 @@ class JJDoc {
                     Object o = it.next();
                     if (o instanceof SingleCharacter c) {
                         returnString.append("\"");
-                        char[] s = {c.getChar()};
-                        returnString.append(Encoding.escape(new String(s)));
+                        returnString.append(Encoding.escape(Character.toString(c.getChar())));
                         returnString.append("\"");
                     } else if (o instanceof CharacterRange range) {
                         returnString.append("\"");
-                        char[] s = {range.getLeft()};
-                        returnString.append(Encoding.escape(new String(s)));
+                        returnString.append(Encoding.escape(Character.toString(range.getLeft())));
                         returnString.append("\"-\"");
-                        s[0] = range.getRight();
-                        returnString.append(Encoding.escape(new String(s)));
+                        returnString.append(Encoding.escape(Character.toString(range.getRight())));
                         returnString.append("\"");
                     } else {
                         throw new GenerationException(

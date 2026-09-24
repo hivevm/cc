@@ -167,7 +167,7 @@ class RustStringLiteralDfaEmitter extends StringLiteralDfaEmitter {
                 key = key2;
                 info = (KindInfo) tab.get(key);
                 ifGenerated = false;
-                char c = key.charAt(0);
+                int c = key.codePointAt(0);
 
                 if (data.isPlainSkip(info, i, c)) {
                     continue;

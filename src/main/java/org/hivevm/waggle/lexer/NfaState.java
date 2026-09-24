@@ -16,8 +16,8 @@ import java.util.List;
 public class NfaState {
 
     public final long[] asciiMoves = new long[2];
-    char[] charMoves = null;
-    char[] rangeMoves = null;
+    int[] charMoves = null;
+    int[] rangeMoves = null;
     public NfaState next = null;
     final List<NfaState> epsilonMoves = new ArrayList<>();
     public String epsilonMovesString;
@@ -39,7 +39,7 @@ public class NfaState {
     public final List<Integer> loByteVec;
     public int[] nonAsciiMoveIndices;
     private int onlyChar = 0;
-    private char matchSingleChar;
+    private int matchSingleChar;
 
     private final NfaStateData data;
 
@@ -76,8 +76,8 @@ public class NfaState {
         v.add(j, s);
     }
 
-    private static char[] ExpandCharArr(char[] oldArr, int incr) {
-        char[] ret = new char[oldArr.length + incr];
+    private static int[] ExpandMoveArr(int[] oldArr, int incr) {
+        int[] ret = new int[oldArr.length + incr];
         System.arraycopy(oldArr, 0, ret, 0, oldArr.length);
         return ret;
     }
@@ -87,30 +87,30 @@ public class NfaState {
         NfaState.InsertInOrder(this.epsilonMoves, newState);
     }
 
-    private void AddASCIIMove(char c) {
+    private void AddASCIIMove(int c) {
         this.asciiMoves[c / 64] |= (1L << (c % 64));
     }
 
-    void AddChar(char c) {
+    void AddChar(int c) {
         this.onlyChar++;
         this.matchSingleChar = c;
         int i;
-        char temp;
-        char temp1;
+        int temp;
+        int temp1;
 
-        if (c < 128) // ASCII char
+        if (c < 128) // ASCII int
         {
             AddASCIIMove(c);
             return;
         }
 
         if (this.charMoves == null)
-            this.charMoves = new char[10];
+            this.charMoves = new int[10];
 
         int len = this.charMoves.length;
 
         if (this.charMoves[len - 1] != 0) {
-            this.charMoves = NfaState.ExpandCharArr(this.charMoves, 10);
+            this.charMoves = NfaState.ExpandMoveArr(this.charMoves, 10);
             len += 10;
         }
 
@@ -132,10 +132,10 @@ public class NfaState {
         }
     }
 
-    final void AddRange(char left, char right) {
+    final void AddRange(int left, int right) {
         this.onlyChar = 2;
         int i;
-        char tempLeft1, tempLeft2, tempRight1, tempRight2;
+        int tempLeft1, tempLeft2, tempRight1, tempRight2;
 
         if (left < 128) {
             if (right < 128) {
@@ -151,12 +151,12 @@ public class NfaState {
         }
 
         if (this.rangeMoves == null)
-            this.rangeMoves = new char[20];
+            this.rangeMoves = new int[20];
 
         int len = this.rangeMoves.length;
 
         if (this.rangeMoves[len - 1] != 0) {
-            this.rangeMoves = NfaState.ExpandCharArr(this.rangeMoves, 20);
+            this.rangeMoves = NfaState.ExpandMoveArr(this.rangeMoves, 20);
             len += 20;
         }
 
@@ -186,7 +186,7 @@ public class NfaState {
 
     // From hereon down all the functions are used for code generation
 
-    private static boolean EqualCharArr(char[] arr1, char[] arr2) {
+    private static boolean EqualMoveArr(int[] arr1, int[] arr2) {
         if (arr1 == arr2)
             return true;
 
@@ -266,11 +266,11 @@ public class NfaState {
             if (this.charMoves == null)
                 this.charMoves = other.charMoves;
             else {
-                char[] tmpCharMoves = new char[this.charMoves.length + other.charMoves.length];
+                int[] tmpCharMoves = new int[this.charMoves.length + other.charMoves.length];
                 System.arraycopy(this.charMoves, 0, tmpCharMoves, 0, this.charMoves.length);
                 this.charMoves = tmpCharMoves;
 
-                for (char element : other.charMoves) {
+                for (int element : other.charMoves) {
                     AddChar(element);
                 }
             }
@@ -280,7 +280,7 @@ public class NfaState {
             if (this.rangeMoves == null)
                 this.rangeMoves = other.rangeMoves;
             else {
-                char[] tmpRangeMoves = new char[this.rangeMoves.length + other.rangeMoves.length];
+                int[] tmpRangeMoves = new int[this.rangeMoves.length + other.rangeMoves.length];
                 System.arraycopy(this.rangeMoves, 0, tmpRangeMoves, 0, this.rangeMoves.length);
                 this.rangeMoves = tmpRangeMoves;
                 for (int i = 0; i < other.rangeMoves.length; i += 2) {
@@ -326,8 +326,8 @@ public class NfaState {
                     == other.kindToPrint)
                     && (this.asciiMoves[0] == other.asciiMoves[0]) && (this.asciiMoves[1]
                     == other.asciiMoves[1])
-                    && NfaState.EqualCharArr(this.charMoves, other.charMoves)
-                    && NfaState.EqualCharArr(this.rangeMoves, other.rangeMoves)) {
+                    && NfaState.EqualMoveArr(this.charMoves, other.charMoves)
+                    && NfaState.EqualMoveArr(this.rangeMoves, other.rangeMoves)) {
                 if (this.next == other.next)
                     return other;
                 else if (((this.next != null) && (other.next != null))
@@ -423,9 +423,9 @@ public class NfaState {
                         if ((tmp2 = this.epsilonMoves.get(j)).HasTransitions() && (
                                 (tmp1.asciiMoves[0] == tmp2.asciiMoves[0])
                                         && (tmp1.asciiMoves[1] == tmp2.asciiMoves[1])
-                                        && NfaState.EqualCharArr(
+                                        && NfaState.EqualMoveArr(
                                         tmp1.charMoves, tmp2.charMoves)
-                                        && NfaState.EqualCharArr(tmp1.rangeMoves, tmp2.rangeMoves))) {
+                                        && NfaState.EqualMoveArr(tmp1.rangeMoves, tmp2.rangeMoves))) {
                             if (equivStates == null) {
                                 equivStates = new ArrayList<>();
                                 equivStates.add(tmp1);
@@ -542,7 +542,7 @@ public class NfaState {
         return this.epsilonMovesString;
     }
 
-    private boolean CanMoveUsingChar(char c) {
+    private boolean CanMoveUsingChar(int c) {
         int i;
 
         if (this.onlyChar == 1)
@@ -575,7 +575,7 @@ public class NfaState {
         return false;
     }
 
-    private int MoveFrom(char c, List<NfaState> newStates) {
+    private int MoveFrom(int c, List<NfaState> newStates) {
         if (CanMoveUsingChar(c)) {
             for (int i = this.next.epsilonMoves.size(); i-- > 0; ) {
                 NfaState.InsertInOrder(newStates, this.next.epsilonMoves.get(i));
@@ -585,7 +585,7 @@ public class NfaState {
         return Integer.MAX_VALUE;
     }
 
-    static int MoveFromSet(char c, List<NfaState> states, List<NfaState> newStates) {
+    static int MoveFromSet(int c, List<NfaState> states, List<NfaState> newStates) {
         int tmp;
         int retVal = Integer.MAX_VALUE;
 

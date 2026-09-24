@@ -161,9 +161,9 @@ class JavaCharStream {
 	}
 
 	/**
-	 * @return starting character for token.
+	 * @return starting character for token, a code point (ADR-0029).
 	 */
-	public char BeginToken() throws java.io.IOException {
+	public int BeginToken() throws java.io.IOException {
 		if (this.inBuf > 0) {
 			--this.inBuf;
 
@@ -172,7 +172,7 @@ class JavaCharStream {
 			}
 
 			this.tokenBegin = this.bufpos;
-			return this.buffer[this.bufpos];
+			return withLowSurrogate(this.buffer[this.bufpos]);
 		}
 
 		this.tokenBegin = 0;
@@ -242,9 +242,38 @@ class JavaCharStream {
 //@fi
 
 	/**
-	 * Read a character.
+	 * Reads a character: a Unicode code point, from the two UTF-16 units of a surrogate pair when
+	 * it is one. The lexer counts characters, not units (ADR-0029).
 	 */
-	public char readChar() throws java.io.IOException {
+	public int readChar() throws java.io.IOException {
+		return withLowSurrogate(readUnit());
+	}
+
+	/**
+	 * The code point that starts with {@code unit}: a high surrogate followed by a low one is one
+	 * character. A lone surrogate is returned as it is; no character list matches it.
+	 */
+	private int withLowSurrogate(char unit) throws java.io.IOException {
+		if (!Character.isHighSurrogate(unit)) {
+			return unit;
+		}
+		char low;
+		try {
+			low = readUnit();
+		} catch (java.io.IOException e) {
+			return unit; // the input ends after a lone high surrogate
+		}
+		if (Character.isLowSurrogate(low)) {
+			return Character.toCodePoint(unit, low);
+		}
+		backupUnits(1);
+		return unit;
+	}
+
+	/**
+	 * Reads one UTF-16 unit.
+	 */
+	private char readUnit() throws java.io.IOException {
 		if (this.inBuf > 0) {
 			--this.inBuf;
 
@@ -291,13 +320,13 @@ class JavaCharStream {
 							break;
 						}
 
-						backup(backSlashCnt);
+						backupUnits(backSlashCnt);
 						return '\\';
 					}
 				} catch (java.io.IOException e) {
 					// We are returning one backslash so we should only backup (count-1)
 					if (backSlashCnt > 1) {
-						backup(backSlashCnt - 1);
+						backupUnits(backSlashCnt - 1);
 					}
 
 					return '\\';
@@ -341,7 +370,7 @@ class JavaCharStream {
 			if (backSlashCnt == 1) {
 				return c;
 			} else {
-				backup(backSlashCnt - 1);
+				backupUnits(backSlashCnt - 1);
 				return '\\';
 			}
 		}
@@ -425,12 +454,39 @@ class JavaCharStream {
 	/**
 	 * Retreat.
 	 */
+	/**
+	 * Backs up by {@code amount} characters, as the lexer counts them: a character beyond the BMP
+	 * is two units in the buffer (ADR-0029).
+	 */
 	public void backup(int amount) {
+		backupUnits(unitsOf(amount));
+	}
 
+	private void backupUnits(int amount) {
 		this.inBuf += amount;
 		if ((this.bufpos -= amount) < 0) {
 			this.bufpos += this.bufsize;
 		}
+	}
+
+	/** The UTF-16 units the last {@code chars} characters read take in the buffer. */
+	private int unitsOf(int chars) {
+		int units = 0;
+		int pos = this.bufpos;
+		for (int c = 0; c < chars; c++) {
+			char unit = this.buffer[pos];
+			units++;
+			if (--pos < 0) {
+				pos += this.bufsize;
+			}
+			if (Character.isLowSurrogate(unit) && Character.isHighSurrogate(this.buffer[pos])) {
+				units++;
+				if (--pos < 0) {
+					pos += this.bufsize;
+				}
+			}
+		}
+		return units;
 	}
 
 	/**
@@ -466,7 +522,8 @@ class JavaCharStream {
 	/**
 	 * @return suffix
 	 */
-	public char[] GetSuffix(int len) {
+	public char[] GetSuffix(int chars) {
+		int len = unitsOf(chars); // the lexer counts characters (ADR-0029)
 		char[] ret = new char[len];
 
 		if ((this.bufpos + 1) >= len) {

@@ -370,7 +370,11 @@ public class LexerData {
         return this.rexprs[index];
     }
 
-    public final long getLohiByte(int offest, int index) {
-        return this.lohiByte.get(offest)[index];
+    /**
+     * The words of a shared bit vector: four for a low-byte vector, {@code (0x10FF + 1) / 64} for a
+     * vector over high bytes (ADR-0029).
+     */
+    public final long[] getLohiBytes(int index) {
+        return this.lohiByte.get(index).clone();
     }
 }

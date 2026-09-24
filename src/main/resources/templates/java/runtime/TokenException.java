@@ -130,11 +130,10 @@ class TokenException extends RuntimeException {
 	private static String LexicalErr(boolean EOFSeen, int lexState, int errorLine, int errorColumn,
 									 String errorAfter,
 									 int curChar) {
-		char curChar1 = (char) curChar;
 		return ("Lexical error at line " + errorLine + ", column " + errorColumn
 				+ ".  Encountered: "
 				+ (EOFSeen ? "<EOF> "
-				: ("\"" + TokenException.addEscapes(String.valueOf(curChar1)) + "\"") + " (" + curChar + "), ")
+				: ("\"" + TokenException.addEscapes(Character.toString(curChar)) + "\"") + " (" + curChar + "), ")
 				+ "after : \"" + TokenException.addEscapes(errorAfter) + "\"");
 	}
 }

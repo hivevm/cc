@@ -66,7 +66,7 @@ public class GetNextTokenEmitter {
             printer.indent();
             printer.println("debugStream.println("
                     + (data.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                    + "\"Skipping character : \" + TokenException.addEscapes(String.valueOf((char) curChar)) + \" (\" + (int)curChar + \")\");");
+                    + "\"Skipping character : \" + TokenException.addEscapes(Character.toString(curChar)) + \" (\" + (int)curChar + \")\");");
         }
 
         printer.println("curChar = input_stream.BeginToken();");
@@ -244,7 +244,7 @@ public class GetNextTokenEmitter {
             printer.println("debugStream.println("
                     + (data.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
                     + "\"Current character : \" + "
-                    + "TokenException.addEscapes(String.valueOf((char) curChar)) + \" (\" + (int)curChar + \") "
+                    + "TokenException.addEscapes(Character.toString(curChar)) + \" (\" + (int)curChar + \") "
                     + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
         }
         printer.println("continue;");

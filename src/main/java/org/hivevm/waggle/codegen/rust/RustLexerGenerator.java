@@ -53,9 +53,8 @@ class RustLexerGenerator extends LexerGenerator {
 
     @Override
     protected final void generate(LexerData data, OptionsContext options) {
-        // A jjbitVec is a 256-bit map over the low byte: always four u64. This used to be the
-        // number of vectors, which is a different thing entirely and only ever matched by accident.
-        options.set("LOHI_BYTES_LENGTH", 4);
+        // Each jjbitVec is declared at its own length (LOHI_BYTES_LENGTH, set by LexerGenerator):
+        // four u64 over a low byte, more over the high bytes of a code point (ADR-0029).
         var images = RustLexerGenerator.getStrLiteralImageList(data);
         options.add("LITERAL_IMAGES", images).set("LITERAL_IMAGE_NAME", s -> s);
         options.set("LITERAL_IMAGES_LENGTH", images.size());
@@ -718,7 +717,7 @@ class RustLexerGenerator extends LexerGenerator {
     public void printImageAppend(LinePrinter printer, LexerData data, int i, String indent) {
         if (data.getImage(i) != null) {
             printer.println("self.image.push_str(" + strLiteralImages() + "[" + i + "]);");
-            printer.println(lengthOfMatch() + " = " + strLiteralImages() + "[" + i + "].len();");
+            printer.println(lengthOfMatch() + " = " + matchedPosVar() + " + 1; // characters, not bytes");
         } else {
             // The suffix has to be read out before the borrow of self.image starts.
             printer.println(lengthOfMatch() + " = " + matchedPosVar() + " + 1;");

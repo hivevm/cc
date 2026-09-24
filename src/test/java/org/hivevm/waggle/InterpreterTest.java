@@ -182,4 +182,14 @@ class InterpreterTest {
         assertEquals(List.of("a", "+", "1"), matches.stream()
                 .map(LexerInterpreter.Match::image).toList());
     }
+
+    /** The interpreter reads code points as the generated lexers do (ADR-0029). */
+    @Test
+    void aCharacterBeyondTheBmpIsOneCharacter() {
+        var matches = new ParserInterpreter(new Diagnostics(DiagnosticSink.SILENT))
+                .tokenize(GeneratedLexerTest.BEYOND_BMP, GeneratedLexerTest.BEYOND_BMP_INPUT);
+
+        assertEquals(List.of("a", "\uD83D\uDE00", "b", "\uD801\uDC28", "\uD83D\uDE01", "\uFFFD",
+                "ab\uD801\uDC00c"), matches.stream().map(LexerInterpreter.Match::image).toList());
+    }
 }

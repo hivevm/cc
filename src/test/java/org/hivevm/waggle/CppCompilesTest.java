@@ -309,6 +309,32 @@ class CppCompilesTest {
         assertEquals("ab@1:1-1:2;\u00e4@1:4-1:4;\u00e4c@1:6-1:7;d@2:1-2:1;", output);
     }
 
+    /** The grammar and input of GeneratedLexerTest, read the same way in C++ (ADR-0029). */
+    @Test
+    void charactersBeyondTheBmpAreOneCharacter(@TempDir Path dir)
+            throws IOException, InterruptedException {
+        var utf8 = new StringBuilder();
+        for (byte b : GeneratedLexerTest.BEYOND_BMP_INPUT.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+            utf8.append(String.format("\\x%02x\" \"", b & 0xff));
+        }
+        var output = run(GeneratedLexerTest.BEYOND_BMP.replace("grammar Sup;", "grammar Run;"), dir, """
+                #include <iostream>
+                #include "RunTokenManager.h"
+                #include "StringReader.h"
+
+                int main() {
+                    StringReader reader(JJString("%s"));
+                    RunTokenManager lexer(&reader);
+                    for (Token* t = lexer.getNextToken(); t->kind() != 0; t = lexer.getNextToken()) {
+                        std::cout << t->kind() << ":" << t->image() << ";";
+                    }
+                }
+                """.formatted(utf8));
+        // 2 SMILE, 3 DESERET, 4 WIDE, 5 WORD
+        assertEquals("5:a;2:\uD83D\uDE00;5:b;3:\uD801\uDC28;4:\uD83D\uDE01;4:\uFFFD;5:ab\uD801\uDC00c;",
+                output);
+    }
+
     /** A grammar to run: its tokens reach beyond ASCII. */
     private static final String RUN = """
             grammar Run;

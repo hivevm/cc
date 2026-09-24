@@ -110,7 +110,9 @@ parserProject {
 
 * HiveVM Waggle offers many options to customize its behavior and the behavior of the generated parsers. Examples of such options are the kinds of Unicode processing to perform on the input stream, the number of tokens of ambiguity checking to perform etc.
 
-* Token positions count characters, 1-based, with a tab as one column, in every target
+* Lexing is full Unicode: a character is a code point up to U+10FFFF, in literals, character lists
+  and the input alike, and a surrogate pair written in a literal is the one character it encodes.
+  Token positions count characters, 1-based, with a tab as one column, in every target
   ([ADR-0029](docs/adr/0029-one-character-model-across-targets.md)). A Java-style Unicode escape
   (a backslash, `u` and four hex digits) in the input is ordinary text unless the grammar sets
   `JAVA_UNICODE_ESCAPE: true`. The Java target always decoded it before; a grammar that relied on that
@@ -157,9 +159,9 @@ to be discovered.
   decoding yet, so a grammar for either target that sets it is rejected
   ([ADR-0029](docs/adr/0029-one-character-model-across-targets.md)).
 
-* **Characters beyond U+FFFF do not match in C++ and Rust yet.** The grammar model stores them as two
-  UTF-16 units, while the C++ and Rust lexers read code points. ADR-0029 moves the model to code
-  points; until then such literals and ranges work in the Java target only.
+* **Characters beyond U+FFFF are not verified for Rust.** Literals, character lists and ranges denote
+  code points in every target (ADR-0029), and the Java and C++ lexers are run on such input in the
+  tests. The Rust lexer gets the same automaton, but no Rust toolchain was available to run it.
 
 
 ## Example

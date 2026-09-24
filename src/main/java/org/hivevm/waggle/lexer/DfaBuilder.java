@@ -38,7 +38,7 @@ public class DfaBuilder {
             for (String key2 : NfaStateData.reArrange(tab)) {
                 key = key2;
                 info = (KindInfo) tab.get(key);
-                char c = key.charAt(0);
+                int c = key.codePointAt(0);
 
                 if ((i == 0) && (c < 128) && info.hasFinalKindCnt()
                         && ((data.generatedStates() == 0) || !data.canStartNfaUsingAscii(c))) {
@@ -497,7 +497,7 @@ public class DfaBuilder {
         return -1;
     }
 
-    private static void addCharToSkip(NfaStateData data, NfaState[] singlesToSkip, char c,
+    private static void addCharToSkip(NfaStateData data, NfaState[] singlesToSkip, int c,
                                       int kind) {
         singlesToSkip[data.getStateIndex()].AddChar(c);
         singlesToSkip[data.getStateIndex()].kind = kind;

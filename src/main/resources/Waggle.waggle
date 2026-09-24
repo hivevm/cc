@@ -502,12 +502,12 @@ character_descriptor() : Production #CharDescriptor =
 ?>
   imageL=StringLiteral()
 <?
-	char c1 = character_descriptor_assign(getToken(0), imageL);
+	int c1 = character_descriptor_assign(getToken(0), imageL);
 	d = new SingleCharacter(c1);
 ?>
   [ < MINUS > imageR=StringLiteral()
 <?
-	char c2 = character_descriptor_assign(getToken(0), imageR, imageL);
+	int c2 = character_descriptor_assign(getToken(0), imageR, imageL);
 	d = new CharacterRange(c1, c2);
 ?>
   ]

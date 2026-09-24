@@ -287,7 +287,7 @@ public interface TargetSyntax {
     default void printDebugCurrentCharacter(LinePrinter printer, LexerData data) {
         printer.println("debugStream.println("
                 + (data.maxLexStates() > 1 ? "\"<\" + lexStateNames[curLexState] + \">\" + " : "")
-                + "\"Current character : \" + TokenException.addEscapes(String.valueOf((char) curChar)) + \" (\" + (int)curChar + \") "
+                + "\"Current character : \" + TokenException.addEscapes(Character.toString(curChar)) + \" (\" + (int)curChar + \") "
                 + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
     }
 
@@ -577,7 +577,7 @@ public interface TargetSyntax {
                         + (data.global.maxLexStates() > 1
                         ? "\"<\" + lexStateNames[curLexState] + \">\" + "
                         : "")
-                        + "\"Current character : \" + TokenException.addEscapes(String.valueOf((char) curChar)) + \" (\" + (int)curChar + \") "
+                        + "\"Current character : \" + TokenException.addEscapes(Character.toString(curChar)) + \" (\" + (int)curChar + \") "
                         + "at line \" + input_stream.getEndLine() + \" column \" + input_stream.getEndColumn());");
     }
 
@@ -704,8 +704,9 @@ public interface TargetSyntax {
         printer.print(indent + "image.append");
         if (data.getImage(i) != null) {
             printer.println("(" + strLiteralImages() + "[" + i + "]);");
-            printer.println("        " + lengthOfMatch() + " = " + strLiteralImages() + "[" + i
-                    + "].length();");
+            // Characters, as the suffix taken from the input counts them; the length of the image
+            // counted UTF-16 units in Java and bytes in C++ (ADR-0029).
+            printer.println("        " + lengthOfMatch() + " = " + matchedPosVar() + " + 1;");
         } else {
             printer.println("(" + inputStream() + getSuffix() + "(" + imageLen() + " + (" + lengthOfMatch()
                     + " = " + matchedPosVar() + " + 1)));");
@@ -851,11 +852,8 @@ public interface TargetSyntax {
     }
 
     default String getLohiBytes(LexerData data, int i) {
-        return String.join(", ",
-                toHexString(data.getLohiByte(i, 0)),
-                toHexString(data.getLohiByte(i, 1)),
-                toHexString(data.getLohiByte(i, 2)),
-                toHexString(data.getLohiByte(i, 3)));
+        return java.util.Arrays.stream(data.getLohiBytes(i)).mapToObj(this::toHexString)
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     /** The name of the composite state the NFA starts in, or -1 when it has no epsilon moves. */

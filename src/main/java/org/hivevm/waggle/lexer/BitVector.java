@@ -14,8 +14,7 @@ import java.util.Arrays;
 record BitVector(long[] words) {
 
     boolean allBitsSet() {
-        return (this.words[0] == -1L) && (this.words[1] == -1L) && (this.words[2] == -1L)
-                && (this.words[3] == -1L);
+        return Arrays.stream(this.words).allMatch(word -> word == -1L);
     }
 
     @Override

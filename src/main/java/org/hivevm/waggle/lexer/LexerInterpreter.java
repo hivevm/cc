@@ -85,7 +85,7 @@ public final class LexerInterpreter {
             if (match == null) {
                 throw new LexerError("No token matches the input at offset " + pos
                         + " (lexical state " + this.data.getStateName(state) + ", character '"
-                        + input.charAt(pos) + "')", pos);
+                        + Character.toString(input.codePointAt(pos)) + "')", pos);
             }
 
             var begin = (moreFrom < 0) ? match.begin() : moreFrom;
@@ -115,8 +115,10 @@ public final class LexerInterpreter {
         var matchedKind = Integer.MAX_VALUE;
         var matchedEnd = -1;
 
-        for (var at = pos; (at < input.length()) && !current.isEmpty(); at++) {
-            var c = character(input.charAt(at));
+        // The automaton reads code points (ADR-0029); the offsets stay offsets into the string.
+        for (var at = pos; (at < input.length()) && !current.isEmpty(); ) {
+            var c = character(input.codePointAt(at));
+            at += Character.charCount(input.codePointAt(at));
             var next = new LinkedHashSet<NfaState>();
             for (var s : current) {
                 if (LexerInterpreter.matches(s, c) && (s.next != null)) {
@@ -133,23 +135,24 @@ public final class LexerInterpreter {
             }
             if (here != Integer.MAX_VALUE) {
                 matchedKind = here;
-                matchedEnd = at + 1;
+                matchedEnd = at;
             }
         }
 
         // A catch-all token (~[]) is not part of the NFA: the generated lexer applies it after the
         // automaton, as a one-character match that wins over nothing or over a later declaration.
         var anyChar = this.data.canMatchAnyChar(state);
-        if ((anyChar != -1) && ((matchedEnd < 0) || ((matchedEnd == (pos + 1)) && (matchedKind > anyChar)))) {
+        var oneChar = pos + Character.charCount(input.codePointAt(pos));
+        if ((anyChar != -1) && ((matchedEnd < 0) || ((matchedEnd == oneChar) && (matchedKind > anyChar)))) {
             matchedKind = anyChar;
-            matchedEnd = pos + 1;
+            matchedEnd = oneChar;
         }
 
         return (matchedEnd < 0) ? null
                 : new Match(matchedKind, input.substring(pos, matchedEnd), pos, matchedEnd, null);
     }
 
-    private char character(char c) {
+    private int character(int c) {
         return this.data.ignoreCase() ? Character.toLowerCase(c) : c;
     }
 
@@ -167,7 +170,7 @@ public final class LexerInterpreter {
     }
 
     /** Whether {@code state} has a move on {@code c}. */
-    private static boolean matches(NfaState state, char c) {
+    private static boolean matches(NfaState state, int c) {
         if (c < 128) {
             return (state.asciiMoves[c / 64] & (1L << (c % 64))) != 0L;
         }

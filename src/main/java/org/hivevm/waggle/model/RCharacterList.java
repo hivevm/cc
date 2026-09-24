@@ -213,8 +213,8 @@ public final class RCharacterList extends RExpression {
         int cnt = this.descriptors.size();
 
         for (int i = 0; i < cnt; i++) {
-            if (this.descriptors.get(i) instanceof SingleCharacter) {
-                char ch = ((SingleCharacter) this.descriptors.get(i)).getChar();
+            if (this.descriptors.get(i) instanceof SingleCharacter single) {
+                int ch = single.getChar();
 
                 if (ch != Character.toLowerCase(ch)) {
                     this.descriptors.add(new SingleCharacter(Character.toLowerCase(ch)));
@@ -223,142 +223,193 @@ public final class RCharacterList extends RExpression {
                     this.descriptors.add(new SingleCharacter(Character.toUpperCase(ch)));
                 }
             } else {
-                char l = ((CharacterRange) this.descriptors.get(i)).getLeft();
-                char r = ((CharacterRange) this.descriptors.get(i)).getRight();
-                int j = 0;
-
-                /* Add ranges for which lower case is different. */
-                for (; ; ) {
-                    while (l > RCharacterList.diffLowerCaseRanges[j]) {
-                        j += 2;
-                    }
-
-                    if (l < RCharacterList.diffLowerCaseRanges[j]) {
-                        if (r < RCharacterList.diffLowerCaseRanges[j]) {
-                            break;
-                        }
-
-                        if (r <= RCharacterList.diffLowerCaseRanges[j + 1]) {
-                            this.descriptors.add(
-                                    new CharacterRange(
-                                            Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
-                                            (char) ((Character.toLowerCase(
-                                                    RCharacterList.diffLowerCaseRanges[j]) + r)
-                                                    - RCharacterList.diffLowerCaseRanges[j])));
-                            break;
-                        }
-
-                        this.descriptors.add(
-                                new CharacterRange(
-                                        Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
-                                        Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j + 1])));
-                    } else {
-                        if (r <= RCharacterList.diffLowerCaseRanges[j + 1]) {
-                            this.descriptors.add(new CharacterRange(
-                                    (char) (
-                                            (Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j])
-                                                    + l)
-                                                    - RCharacterList.diffLowerCaseRanges[j]),
-                                    (char) (
-                                            (Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j])
-                                                    + r)
-                                                    - RCharacterList.diffLowerCaseRanges[j])));
-                            break;
-                        }
-
-                        this.descriptors.add(new CharacterRange(
-                                (char) (
-                                        (Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]) + l)
-                                                - RCharacterList.diffLowerCaseRanges[j]),
-                                Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j + 1])));
-                    }
-
-                    j += 2;
-                    while (r > RCharacterList.diffLowerCaseRanges[j]) {
-                        if (r <= RCharacterList.diffLowerCaseRanges[j + 1]) {
-                            this.descriptors.add(
-                                    new CharacterRange(
-                                            Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
-                                            (char) ((Character.toLowerCase(
-                                                    RCharacterList.diffLowerCaseRanges[j]) + r)
-                                                    - RCharacterList.diffLowerCaseRanges[j])));
-                            break;
-                        }
-
-                        this.descriptors.add(
-                                new CharacterRange(
-                                        Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
-                                        Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j + 1])));
-                        j += 2;
-                    }
-                    break;
+                int l = ((CharacterRange) this.descriptors.get(i)).getLeft();
+                int r = ((CharacterRange) this.descriptors.get(i)).getRight();
+                if (l <= Character.MAX_VALUE) {
+                    addBmpCaseVariants((char) l, (char) Math.min(r, Character.MAX_VALUE));
                 }
-
-                /* Add ranges for which upper case is different. */
-                j = 0;
-                while (l > RCharacterList.diffUpperCaseRanges[j]) {
-                    j += 2;
-                }
-
-                if (l < RCharacterList.diffUpperCaseRanges[j]) {
-                    if (r < RCharacterList.diffUpperCaseRanges[j]) {
-                        continue;
-                    }
-
-                    if (r <= RCharacterList.diffUpperCaseRanges[j + 1]) {
-                        this.descriptors.add(
-                                new CharacterRange(
-                                        Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
-                                        (char) (
-                                                (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j])
-                                                        + r)
-                                                        - RCharacterList.diffUpperCaseRanges[j])));
-                        continue;
-                    }
-
-                    this.descriptors.add(
-                            new CharacterRange(
-                                    Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
-                                    Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j + 1])));
-                } else {
-                    if (r <= RCharacterList.diffUpperCaseRanges[j + 1]) {
-                        this.descriptors.add(new CharacterRange(
-                                (char) (
-                                        (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]) + l)
-                                                - RCharacterList.diffUpperCaseRanges[j]),
-                                (char) (
-                                        (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]) + r)
-                                                - RCharacterList.diffUpperCaseRanges[j])));
-                        continue;
-                    }
-
-                    this.descriptors.add(new CharacterRange(
-                            (char) ((Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]) + l)
-                                    - RCharacterList.diffUpperCaseRanges[j]),
-                            Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j + 1])));
-                }
-
-                j += 2;
-                while (r > RCharacterList.diffUpperCaseRanges[j]) {
-                    if (r <= RCharacterList.diffUpperCaseRanges[j + 1]) {
-                        this.descriptors.add(
-                                new CharacterRange(
-                                        Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
-                                        (char) (
-                                                (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j])
-                                                        + r)
-                                                        - RCharacterList.diffUpperCaseRanges[j])));
-                        break;
-                    }
-
-                    this.descriptors.add(
-                            new CharacterRange(
-                                    Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
-                                    Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j + 1])));
-                    j += 2;
+                if (r > Character.MAX_VALUE) {
+                    addSupplementaryCaseVariants(Math.max(l, Character.MIN_SUPPLEMENTARY_CODE_POINT), r);
                 }
             }
         }
+    }
+
+    /**
+     * Adds the other case of every letter in {@code [l, r]}, a range of the Basic Multilingual Plane,
+     * using the tables above.
+     */
+    private void addBmpCaseVariants(char l, char r) {
+        int j = 0;
+
+        /* Add ranges for which lower case is different. */
+        for (; ; ) {
+            while (l > RCharacterList.diffLowerCaseRanges[j]) {
+                j += 2;
+            }
+
+            if (l < RCharacterList.diffLowerCaseRanges[j]) {
+                if (r < RCharacterList.diffLowerCaseRanges[j]) {
+                    break;
+                }
+
+                if (r <= RCharacterList.diffLowerCaseRanges[j + 1]) {
+                    this.descriptors.add(
+                            new CharacterRange(
+                                    Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
+                                    (char) ((Character.toLowerCase(
+                                            RCharacterList.diffLowerCaseRanges[j]) + r)
+                                            - RCharacterList.diffLowerCaseRanges[j])));
+                    break;
+                }
+
+                this.descriptors.add(
+                        new CharacterRange(
+                                Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
+                                Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j + 1])));
+            } else {
+                if (r <= RCharacterList.diffLowerCaseRanges[j + 1]) {
+                    this.descriptors.add(new CharacterRange(
+                            (char) (
+                                    (Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j])
+                                            + l)
+                                            - RCharacterList.diffLowerCaseRanges[j]),
+                            (char) (
+                                    (Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j])
+                                            + r)
+                                            - RCharacterList.diffLowerCaseRanges[j])));
+                    break;
+                }
+
+                this.descriptors.add(new CharacterRange(
+                        (char) (
+                                (Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]) + l)
+                                        - RCharacterList.diffLowerCaseRanges[j]),
+                        Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j + 1])));
+            }
+
+            j += 2;
+            while (r > RCharacterList.diffLowerCaseRanges[j]) {
+                if (r <= RCharacterList.diffLowerCaseRanges[j + 1]) {
+                    this.descriptors.add(
+                            new CharacterRange(
+                                    Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
+                                    (char) ((Character.toLowerCase(
+                                            RCharacterList.diffLowerCaseRanges[j]) + r)
+                                            - RCharacterList.diffLowerCaseRanges[j])));
+                    break;
+                }
+
+                this.descriptors.add(
+                        new CharacterRange(
+                                Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j]),
+                                Character.toLowerCase(RCharacterList.diffLowerCaseRanges[j + 1])));
+                j += 2;
+            }
+            break;
+        }
+
+        /* Add ranges for which upper case is different. */
+        j = 0;
+        while (l > RCharacterList.diffUpperCaseRanges[j]) {
+            j += 2;
+        }
+
+        if (l < RCharacterList.diffUpperCaseRanges[j]) {
+            if (r < RCharacterList.diffUpperCaseRanges[j]) {
+                return;
+            }
+
+            if (r <= RCharacterList.diffUpperCaseRanges[j + 1]) {
+                this.descriptors.add(
+                        new CharacterRange(
+                                Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
+                                (char) (
+                                        (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j])
+                                                + r)
+                                                - RCharacterList.diffUpperCaseRanges[j])));
+                return;
+            }
+
+            this.descriptors.add(
+                    new CharacterRange(
+                            Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
+                            Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j + 1])));
+        } else {
+            if (r <= RCharacterList.diffUpperCaseRanges[j + 1]) {
+                this.descriptors.add(new CharacterRange(
+                        (char) (
+                                (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]) + l)
+                                        - RCharacterList.diffUpperCaseRanges[j]),
+                        (char) (
+                                (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]) + r)
+                                        - RCharacterList.diffUpperCaseRanges[j])));
+                return;
+            }
+
+            this.descriptors.add(new CharacterRange(
+                    (char) ((Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]) + l)
+                            - RCharacterList.diffUpperCaseRanges[j]),
+                    Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j + 1])));
+        }
+
+        j += 2;
+        while (r > RCharacterList.diffUpperCaseRanges[j]) {
+            if (r <= RCharacterList.diffUpperCaseRanges[j + 1]) {
+                this.descriptors.add(
+                        new CharacterRange(
+                                Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
+                                (char) (
+                                        (Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j])
+                                                + r)
+                                                - RCharacterList.diffUpperCaseRanges[j])));
+                break;
+            }
+
+            this.descriptors.add(
+                    new CharacterRange(
+                            Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j]),
+                            Character.toUpperCase(RCharacterList.diffUpperCaseRanges[j + 1])));
+            j += 2;
+        }
+    }
+
+    /**
+     * Adds the other case of every letter in {@code [l, r]}, a range beyond the Basic Multilingual
+     * Plane, which the tables do not cover. Few scripts there have case (Deseret, Osage, Adlam and
+     * some more), so the range is walked and the variants are added as runs of consecutive code
+     * points.
+     */
+    private void addSupplementaryCaseVariants(int l, int r) {
+        var variants = new java.util.TreeSet<Integer>();
+        for (int cp = l; cp <= r; cp++) {
+            int lower = Character.toLowerCase(cp);
+            int upper = Character.toUpperCase(cp);
+            if (lower != cp) {
+                variants.add(lower);
+            }
+            if (upper != cp) {
+                variants.add(upper);
+            }
+        }
+
+        int start = -1;
+        int last = -2;
+        for (int cp : variants) {
+            if (cp != (last + 1)) {
+                addRun(start, last);
+                start = cp;
+            }
+            last = cp;
+        }
+        addRun(start, last);
+    }
+
+    private void addRun(int first, int last) {
+        if (first < 0) {
+            return;
+        }
+        this.descriptors.add((first == last) ? new SingleCharacter(first) : new CharacterRange(first, last));
     }
 
     private static boolean Overlaps(CharacterRange r1, CharacterRange r2) {
@@ -369,7 +420,7 @@ public final class RCharacterList extends RExpression {
         return ((r1.getLeft() >= r2.getLeft()) && (r1.getRight() <= r2.getRight()));
     }
 
-    private static boolean InRange(char c, CharacterRange range) {
+    private static boolean InRange(int c, CharacterRange range) {
         return ((c >= range.getLeft()) && (c <= range.getRight()));
     }
 
@@ -395,7 +446,7 @@ public final class RCharacterList extends RExpression {
                             continue Outer;
                         }
                     } else {
-                        char l = ((CharacterRange) newDesc.get(j)).getLeft();
+                        int l = ((CharacterRange) newDesc.get(j)).getLeft();
 
                         if (RCharacterList.InRange(s.getChar(), (CharacterRange) newDesc.get(j))) {
                             continue Outer;
@@ -424,10 +475,10 @@ public final class RCharacterList extends RExpression {
                         newDesc.set(j, range);
                         continue Outer;
                     } else if (RCharacterList.Overlaps(range, (CharacterRange) newDesc.get(j))) {
-                        range.setLeft((char) (((CharacterRange) newDesc.get(j)).getRight() + 1));
+                        range.setLeft(((CharacterRange) newDesc.get(j)).getRight() + 1);
                     } else if (RCharacterList.Overlaps((CharacterRange) newDesc.get(j), range)) {
                         CharacterRange tmp = range;
-                        ((CharacterRange) newDesc.get(j)).setLeft((char) (range.getRight() + 1));
+                        ((CharacterRange) newDesc.get(j)).setLeft(range.getRight() + 1);
                         range = (CharacterRange) newDesc.get(j);
                         newDesc.set(j, tmp);
                     } else if (((CharacterRange) newDesc.get(j)).getLeft() > range.getRight()) {
@@ -443,9 +494,15 @@ public final class RCharacterList extends RExpression {
         this.descriptors = newDesc;
     }
 
+    /**
+     * Turns {@code ~[...]} into the list of the code points it matches, up to U+10FFFF (ADR-0029).
+     * Surrogates are not characters: a lone one in the input is a lexical error in every target,
+     * so no negated list matches it.
+     */
     public final void RemoveNegation() {
         int i;
 
+        this.descriptors.add(new CharacterRange(Character.MIN_SURROGATE, Character.MAX_SURROGATE));
         SortDescriptors();
 
         List<Object> newDescriptors = new ArrayList<>();
@@ -453,31 +510,30 @@ public final class RCharacterList extends RExpression {
 
         for (i = 0; i < this.descriptors.size(); i++) {
             if (this.descriptors.get(i) instanceof SingleCharacter) {
-                char c = ((SingleCharacter) this.descriptors.get(i)).getChar();
+                int c = ((SingleCharacter) this.descriptors.get(i)).getChar();
 
                 if (c <= lastRemoved + 1) {
                     lastRemoved = c;
                     continue;
                 }
 
-                newDescriptors.add(
-                        new CharacterRange((char) (lastRemoved + 1), (char) ((lastRemoved = c) - 1)));
+                newDescriptors.add(new CharacterRange(lastRemoved + 1, (lastRemoved = c) - 1));
             } else {
-                char l = ((CharacterRange) this.descriptors.get(i)).getLeft();
-                char r = ((CharacterRange) this.descriptors.get(i)).getRight();
+                int l = ((CharacterRange) this.descriptors.get(i)).getLeft();
+                int r = ((CharacterRange) this.descriptors.get(i)).getRight();
 
                 if (l <= lastRemoved + 1) {
                     lastRemoved = r;
                     continue;
                 }
 
-                newDescriptors.add(new CharacterRange((char) (lastRemoved + 1), (char) (l - 1)));
+                newDescriptors.add(new CharacterRange(lastRemoved + 1, l - 1));
                 lastRemoved = r;
             }
         }
 
-        if (lastRemoved < (char) 0xffff) {
-            newDescriptors.add(new CharacterRange((char) (lastRemoved + 1), (char) 0xffff));
+        if (lastRemoved < Character.MAX_CODE_POINT) {
+            newDescriptors.add(new CharacterRange(lastRemoved + 1, Character.MAX_CODE_POINT));
         }
 
         this.descriptors = newDescriptors;
@@ -487,7 +543,7 @@ public final class RCharacterList extends RExpression {
     public RCharacterList() {
     }
 
-    public RCharacterList(char c) {
+    public RCharacterList(int c) {
         this.descriptors = new ArrayList<>();
         this.descriptors.add(new SingleCharacter(c));
         this.negated_list = false;

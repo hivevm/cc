@@ -149,8 +149,8 @@ final class NfaVisitor implements RegularExpressionVisitor<Nfa, NfaStateData> {
             }
 
             List<Object> descriptors;
-            if ((curRE instanceof RStringLiteral literal) && (literal.getImage().length() == 1)) {
-                descriptors = List.of(new SingleCharacter(literal.getImage().charAt(0)));
+            if ((curRE instanceof RStringLiteral literal) && (codePoints(literal).length == 1)) {
+                descriptors = List.of(new SingleCharacter(codePoints(literal)[0]));
             } else if (curRE instanceof RCharacterList list) {
                 descriptors = list.isNegated_list() ? matched(list, data).getDescriptors()
                         : list.copy().getDescriptors();
@@ -169,6 +169,11 @@ final class NfaVisitor implements RegularExpressionVisitor<Nfa, NfaStateData> {
             }
         }
         return choices;
+    }
+
+    /** The characters of a literal: code points, not UTF-16 units (ADR-0029). */
+    static int[] codePoints(RStringLiteral literal) {
+        return literal.getImage().codePoints().toArray();
     }
 
     @Override
@@ -248,8 +253,9 @@ final class NfaVisitor implements RegularExpressionVisitor<Nfa, NfaStateData> {
 
     @Override
     public Nfa visit(RStringLiteral expr, NfaStateData data) {
-        if (expr.getImage().length() == 1) {
-            RCharacterList temp = new RCharacterList(expr.getImage().charAt(0));
+        int[] image = codePoints(expr);
+        if (image.length == 1) {
+            RCharacterList temp = new RCharacterList(image[0]);
             return temp.accept(this, data);
         }
 
@@ -257,19 +263,17 @@ final class NfaVisitor implements RegularExpressionVisitor<Nfa, NfaStateData> {
         NfaState theStartState = startState;
         NfaState finalState = null;
 
-        if (expr.getImage().isEmpty())
+        if (image.length == 0)
             return new Nfa(theStartState, theStartState);
 
-        int i;
-
-        for (i = 0; i < expr.getImage().length(); i++) {
+        for (int c : image) {
             finalState = new NfaState(data);
-            startState.charMoves = new char[1];
-            startState.AddChar(expr.getImage().charAt(i));
+            startState.charMoves = new int[1];
+            startState.AddChar(c);
 
             if (data.ignoreCase() || isIgnoreCase()) {
-                startState.AddChar(Character.toLowerCase(expr.getImage().charAt(i)));
-                startState.AddChar(Character.toUpperCase(expr.getImage().charAt(i)));
+                startState.AddChar(Character.toLowerCase(c));
+                startState.AddChar(Character.toUpperCase(c));
             }
 
             startState.next = finalState;

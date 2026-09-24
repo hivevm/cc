@@ -204,6 +204,48 @@ class GeneratedLexerTest {
                 .tokens(input));
     }
 
+    /**
+     * Characters beyond the BMP (ADR-0029), shared with CppCompilesTest: a literal, an IGNORE_CASE
+     * literal from Deseret, whose letters have case, a range across U+FFFF and a negated list, which
+     * reaches up to U+10FFFF.
+     */
+    static final String BEYOND_BMP = """
+            grammar Sup;
+
+            options {
+              JAVA_PACKAGE: "org.example"
+            }
+
+            Input = ( <SMILE> | <DESERET> | <WIDE> | <WORD> )* <EOF> ;
+
+            SKIP = " " ;
+
+            TOKEN = < SMILE: "\\uD83D\\uDE00" > ;
+
+            TOKEN [IGNORE_CASE] = < DESERET: "\\uD801\\uDC00" > ;
+
+            TOKEN = < WIDE: ["\\uFFFD"-"\\uD83D\\uDE01"] > | < WORD: (~[" ", "\\uD83D\\uDE00"])+ > ;
+            """;
+
+    /** The input for {@link #BEYOND_BMP}, and the tokens it is read as. */
+    static final String BEYOND_BMP_INPUT = "a\uD83D\uDE00b \uD801\uDC28 \uD83D\uDE01 \uFFFD ab\uD801\uDC00c";
+
+    @Test
+    void charactersBeyondTheBmpAreOneCharacter(@TempDir Path dir) throws Exception {
+        var lexer = compile(dir, "Sup.waggle", BEYOND_BMP);
+        assertEquals(List.of("<WORD>:a", "\"\\ud83d\\ude00\":\uD83D\uDE00", "<WORD>:b",
+                        "\"\\ud801\\udc00\":\uD801\uDC28", "<WIDE>:\uD83D\uDE01", "<WIDE>:\uFFFD",
+                        "<WORD>:ab\uD801\uDC00c"),
+                lexer.tokens(BEYOND_BMP_INPUT));
+    }
+
+    /** A surrogate that is not half of a pair is no character: no list matches it (ADR-0029). */
+    @Test
+    void aLoneSurrogateIsALexicalError(@TempDir Path dir) throws Exception {
+        var lexer = compile(dir, "Sup.waggle", BEYOND_BMP);
+        assertEquals(List.of("<WORD>:ab", "error"), lexer.tokens("ab\uD800 c"));
+    }
+
     /** A compiled lexer, loaded in its own class loader. */
     private record GeneratedLexer(Constructor<?> lexer, Constructor<?> stream,
                                   Constructor<?> provider, Method next, String[] images) {

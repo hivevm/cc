@@ -229,26 +229,30 @@ abstract class AbstractGrammarParser implements ParserConstants {
         return retval.toString();
     }
 
-    protected char character_descriptor_assign(Token t, String s) {
-        if (s.length() != 1) {
+    /**
+     * The code point a string in a character list stands for (ADR-0029): a surrogate pair is one
+     * character, although it is two UTF-16 units.
+     */
+    protected int character_descriptor_assign(Token t, String s) {
+        if (s.codePointCount(0, s.length()) != 1) {
             diagnostics().error(t, "String in character list may contain only one character.");
             return ' ';
         } else {
-            return s.charAt(0);
+            return s.codePointAt(0);
         }
     }
 
-    protected char character_descriptor_assign(Token t, String s, String left) {
-        if (s.length() != 1) {
+    protected int character_descriptor_assign(Token t, String s, String left) {
+        if (s.codePointCount(0, s.length()) != 1) {
             diagnostics().error(t, "String in character list may contain only one character.");
             return ' ';
-        } else if ((left.charAt(0)) > (s.charAt(0))) {
+        } else if (left.codePointAt(0) > s.codePointAt(0)) {
             diagnostics().error(t, "Right end of character range '" + s
                     + "' has a lower ordinal value than the left end of character range '" + left
                     + "'.");
-            return left.charAt(0);
+            return left.codePointAt(0);
         } else {
-            return s.charAt(0);
+            return s.codePointAt(0);
         }
     }
 
