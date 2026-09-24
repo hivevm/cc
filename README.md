@@ -246,7 +246,8 @@ the line and column of the offending input.
 The environment is defined entirely in [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json):
 it starts from a prebuilt base image and layers Dev Container Features and VS Code extensions on top —
 no Dockerfile or Compose file required. Customise the environment by adding Features, switching the
-base image, or adding extensions.
+base image, or adding extensions. The Rust Feature provides `rustc` for the tests that compile and run
+the generated Rust; `g++`, which the C++ tests need, comes with the base image.
 
 ## Coding Agents
 

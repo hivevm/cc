@@ -15,6 +15,16 @@
 
   "shutdownAction": "stopContainer",
 
+  // rustc for the tests that compile and run the generated Rust (RustCompilesTest); without it they
+  // are skipped. The GitHub runners that CI uses have it preinstalled. A dev-only tool: nothing the
+  // project ships depends on it (AGENTS.md §3.6), and ADR-0002 foresees Features for such needs.
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "minimal"
+    }
+  },
+
   // Runs on the host before the container is created. Ensures the bind-mount source for the agent
   // config exists, so Docker does not auto-create it as a root-owned directory (which breaks
   // credential writes inside the container).
