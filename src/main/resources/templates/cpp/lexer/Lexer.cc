@@ -242,9 +242,15 @@ void __PARSER_NAME__TokenManager::SwitchTo(int lexState)
 {
 	if (lexState >= __STATE_COUNT__ || lexState < 0) {
 		JJString message;
-		message += JJWIDE(Error: Ignoring invalid lexical state : );
-		message += lexState; message += JJWIDE(. State unchanged.);
-		throw new TokenManagerError(message, INVALID_LEXICAL_STATE);
+		message += JJWIDE(Error: Ignoring invalid lexical state :);
+		message += JJSPACE;
+#if (WAGGLE_CHAR_TYPE_SIZEOF == 1)
+		message += std::to_string(lexState);
+#else
+		message += std::to_wstring(lexState);
+#endif
+		message += JJWIDE(. State unchanged.);
+		throw TokenManagerError(message, INVALID_LEXICAL_STATE);
 	} else
 		curLexState = lexState;
 }

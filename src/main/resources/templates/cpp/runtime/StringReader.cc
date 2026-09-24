@@ -103,18 +103,33 @@ void StringReader::init() {
 	trackLineColumn = true;
 }
 
+// "amount" counts characters, as the lexer does: with UTF-8 input one character can be up to
+// four bytes, so backing up by bytes left the reader inside a character.
 void StringReader::backup(int amount) {
+#if (WAGGLE_CHAR_TYPE_SIZEOF == 1)
+	while (amount-- > 0) {
+		unsigned char b;
+		do { // un-read continuation bytes up to and including the lead byte
+			b = (unsigned char) buffer[bufpos];
+			inBuf++;
+			if (--bufpos < 0) {
+				bufpos += bufsize;
+			}
+		} while ((b & 0xc0) == 0x80);
+	}
+#else
 	inBuf += amount; bufpos -= amount;
 	if (bufpos < 0) {
 		bufpos += bufsize;
 	}
+#endif
 }
 
 uint32_t StringReader::beginToken() {
 	tokenBegin = -1;
 	uint32_t c = readChar();
 	tokenBegin = bufpos;
-	return c;
+	return decode(c); // the NFA reads code points, so the first one must be one too
 }
 
 uint32_t StringReader::readChar() {
@@ -149,6 +164,20 @@ JJString StringReader::getImage() {
 }
 
 JJString StringReader::getSuffix(int len) {
+#if (WAGGLE_CHAR_TYPE_SIZEOF == 1)
+	// "len" counts characters, as in backup: turn it into the bytes they take.
+	int bytes = 0;
+	for (int chars = 0; chars < len; bytes++) {
+		int pos = bufpos - bytes;
+		if (pos < 0) {
+			pos += bufsize;
+		}
+		if ((((unsigned char) buffer[pos]) & 0xc0) != 0x80) {
+			chars++;
+		}
+	}
+	len = bytes;
+#endif
 	if ((bufpos + 1) >= len) {
 		return JJString(buffer + bufpos - len + 1, len);
 	}
@@ -304,8 +333,11 @@ void StringReader::updateLineColumn(uint32_t c) {
 
 //  TOL: Support UTF-8
 uint32_t StringReader::read() {
-	uint32_t c = readChar();
+	return decode(readChar());
+}
 
+// The code point whose UTF-8 encoding starts with the byte c, reading the rest of it.
+uint32_t StringReader::decode(uint32_t c) {
 	// 1 byte
 	if((c & 0x80) == 0)
 		return c;
@@ -324,7 +356,7 @@ uint32_t StringReader::read() {
 	}
 
 	// 4 byte
-	// (c & 0xf08) == 0xf0
+	// (c & 0xf8) == 0xf0
 	c = ((c & 0x07) << 6);
 	c += (readChar() & 0x3f);
 	c <<= 6;

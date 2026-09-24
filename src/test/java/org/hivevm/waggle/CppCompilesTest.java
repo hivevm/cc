@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -185,6 +187,149 @@ class CppCompilesTest {
         }
         assertTrue(lexer.contains("while ((curChar < 64 && (0x100000000ULL & (1L << curChar))"),
                 lexer.lines().filter(l -> l.contains("curChar < 64")).toList().toString());
+    }
+
+    /**
+     * SwitchTo with a state that does not exist. It threw a pointer, which no
+     * {@code catch (TokenManagerError&)} catches, appended the state as one character with that
+     * code instead of its number, and the error did not keep the message it was given.
+     */
+    @Test
+    void anInvalidLexicalStateIsReportedWithItsNumber(@TempDir Path dir)
+            throws IOException, InterruptedException {
+        var output = run(RUN, dir, """
+                #include <iostream>
+                #include "RunTokenManager.h"
+                #include "StringReader.h"
+                #include "TokenManagerError.h"
+
+                // SwitchTo is protected: lexical actions call it.
+                struct Probe : RunTokenManager {
+                    using RunTokenManager::RunTokenManager;
+                    void switchTo(int state) { SwitchTo(state); }
+                };
+
+                int main() {
+                    StringReader reader(JJString("ab"));
+                    Probe lexer(&reader);
+                    try {
+                        lexer.switchTo(42);
+                        std::cout << "no error";
+                    } catch (TokenManagerError& e) {
+                        std::cout << e.getMessage();
+                    }
+                }
+                """);
+        assertEquals("Error: Ignoring invalid lexical state : 42. State unchanged.", output);
+    }
+
+    /**
+     * UTF-8 input whose tokens start with a character beyond ASCII. The NFA reads decoded code
+     * points, but the reader handed it the first character of a token as a raw, sign-extended byte.
+     */
+    @Test
+    void aTokenMayStartBeyondAscii(@TempDir Path dir) throws IOException, InterruptedException {
+        var output = run(RUN, dir, """
+                #include <iostream>
+                #include "RunTokenManager.h"
+                #include "StringReader.h"
+
+                int main() {
+                    StringReader reader(JJString("\\xc3\\xa4" "b a\\xc3\\xa4 ab"));
+                    RunTokenManager lexer(&reader);
+                    for (Token* t = lexer.getNextToken(); t->kind() != 0; t = lexer.getNextToken()) {
+                        std::cout << t->kind() << ":" << t->image() << ";";
+                    }
+                }
+                """);
+        assertEquals("2:\u00e4b;2:a\u00e4;2:ab;", output);
+    }
+
+    /**
+     * Backing up over characters beyond ASCII: "a\u00e4c" starts "a\u00e4b", which fails at
+     * "c", so the lexer takes "a" and backs up over "\u00e4c". The reader backed up by bytes while
+     * the lexer counts characters, and so stopped inside the "\u00e4". Written once with literals,
+     * which the string-literal DFA matches, and once with lists, which only the NFA sees. The
+     * literals' images did not even compile: they were UTF-16 code units in a char array.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "< LITERAL: \"a\u00e4b\" > | < UMLAUT: \"\u00e4\" >",
+            "< LITERAL: \"a\" [\"\u00e4\"] \"b\" > | < UMLAUT: [\"\u00e4\"] >"})
+    void theLexerBacksUpOverCharactersBeyondAscii(String tokens, @TempDir Path dir)
+            throws IOException, InterruptedException {
+        var output = run("""
+                grammar Run;
+
+                options {
+                  JAVA_PACKAGE: "org.example"
+                }
+
+                Input = ( <WORD> | <UMLAUT> | <LITERAL> )* <EOF> ;
+
+                SKIP = " " ;
+
+                TOKEN = %s | < WORD: (["a"-"z"])+ > ;
+                """.formatted(tokens), dir, """
+                #include <iostream>
+                #include "RunTokenManager.h"
+                #include "StringReader.h"
+
+                int main() {
+                    StringReader reader(JJString("a\\xc3\\xa4" "b a\\xc3\\xa4" "c"));
+                    RunTokenManager lexer(&reader);
+                    for (Token* t = lexer.getNextToken(); t->kind() != 0; t = lexer.getNextToken()) {
+                        std::cout << t->kind() << ":" << t->image() << ";";
+                    }
+                }
+                """);
+        assertEquals("2:a\u00e4b;4:a;3:\u00e4;4:c;", output);
+    }
+
+    /** A grammar to run: its tokens reach beyond ASCII. */
+    private static final String RUN = """
+            grammar Run;
+
+            options {
+              JAVA_PACKAGE: "org.example"
+            }
+
+            Input = ( <WORD> )* <EOF> ;
+
+            SKIP = " " ;
+
+            TOKEN = < WORD: (["a"-"z", "ä"])+ > ;
+            """;
+
+    /**
+     * Generates {@code grammar} as C++, links it with {@code main} into a program, runs it and
+     * returns what it printed.
+     */
+    static String run(String grammar, Path dir, String main)
+            throws IOException, InterruptedException {
+        assumeTrue(CppCompilesTest.hasCompiler(), "no C++ compiler on PATH");
+        assertCompiles(grammar, dir);
+
+        var target = dir.resolve("cpp");
+        Files.writeString(target.resolve("main.cpp"), main);
+        List<String> sources;
+        try (Stream<Path> paths = Files.walk(target)) {
+            sources = paths.filter(p -> p.toString().endsWith(".cc")).sorted()
+                    .map(p -> target.relativize(p).toString()).toList();
+        }
+        var command = new ArrayList<>(List.of("g++", "-std=c++17", "-o", "program", "main.cpp"));
+        command.addAll(sources);
+        var build = new ProcessBuilder(command).directory(target.toFile())
+                .redirectErrorStream(true).start();
+        var buildOutput = new String(build.getInputStream().readAllBytes());
+        assertEquals(0, build.waitFor(), "the program does not build:\n" + buildOutput);
+
+        var program = new ProcessBuilder(target.resolve("program").toString())
+                .directory(target.toFile()).redirectErrorStream(true).start();
+        var output = new String(program.getInputStream().readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(0, program.waitFor(), "the program failed:\n" + output);
+        return output;
     }
 
     /**
