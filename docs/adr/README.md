@@ -42,6 +42,7 @@ working rules that reference this process live in [`AGENTS.md`](../../AGENTS.md)
 | [0026](0026-one-dependency-graph.md) | One dependency graph, stated once and tested over the whole tree | 🟡 Proposed |
 | [0027](0027-remove-the-jjtree-reference-consumer.md) | Remove the JJTree reference consumer | 🟡 Proposed |
 | [0028](0028-tree-building-is-opted-into-with-use-ast.md) | Tree building is opted into with `USE_AST` | 🟡 Proposed |
+| [0029](0029-one-character-model-across-targets.md) | One character model across the targets: code points, columns and escapes | 🟡 Proposed |
 
 ## Process
 
