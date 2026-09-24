@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.hivevm.core.Environment;
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -59,6 +60,22 @@ class TemplateTest {
     void ifIsSkippedWhenAbsent() {
         var out = render("//@if(FLAG)\nyes\n//@fi\n", Map.of());
         assertFalse(out.contains("yes"), out);
+    }
+
+    /**
+     * Under a Turkish default locale {@code "if".toUpperCase()} is {@code "İF"}, so every
+     * {@code //@if} was an unknown directive and no template could be rendered.
+     */
+    @Test
+    void directivesDoNotDependOnTheDefaultLocale() {
+        var saved = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            var out = render("//@if(FLAG)\nyes\n//@fi\n", Map.of("FLAG", true));
+            assertTrue(out.contains("yes"), out);
+        } finally {
+            Locale.setDefault(saved);
+        }
     }
 
     /**
