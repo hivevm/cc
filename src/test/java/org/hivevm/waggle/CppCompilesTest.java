@@ -286,6 +286,29 @@ class CppCompilesTest {
         assertEquals("2:a\u00e4b;4:a;3:\u00e4;4:c;", output);
     }
 
+    /**
+     * Positions count characters and a tab is one column (ADR-0029), as in GeneratedLexerTest for
+     * Java. C++ counted UTF-8 bytes and a tab as eight columns.
+     */
+    @Test
+    void columnsCountCharacters(@TempDir Path dir) throws IOException, InterruptedException {
+        var output = run(RUN.replace("SKIP = \" \" ;", "SKIP = \" \" | \"\\t\" | \"\\n\" ;"), dir, """
+                #include <iostream>
+                #include "RunTokenManager.h"
+                #include "StringReader.h"
+
+                int main() {
+                    StringReader reader(JJString("ab\\t\\xc3\\xa4 \\xc3\\xa4" "c\\nd"));
+                    RunTokenManager lexer(&reader);
+                    for (Token* t = lexer.getNextToken(); t->kind() != 0; t = lexer.getNextToken()) {
+                        std::cout << t->image() << "@" << t->beginLine() << ":" << t->beginColumn()
+                                  << "-" << t->endLine() << ":" << t->endColumn() << ";";
+                    }
+                }
+                """);
+        assertEquals("ab@1:1-1:2;\u00e4@1:4-1:4;\u00e4c@1:6-1:7;d@2:1-2:1;", output);
+    }
+
     /** A grammar to run: its tokens reach beyond ASCII. */
     private static final String RUN = """
             grammar Run;

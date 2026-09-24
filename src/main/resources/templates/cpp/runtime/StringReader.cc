@@ -99,7 +99,7 @@ void StringReader::init() {
 	available = INITIAL_BUFFER_SIZE;
 	maxNextCharInd = 0;
 	inBuf = 0;
-	tabSize = 8;
+	tabSize = 1; // a tab is one column, as in the other targets (ADR-0029)
 	trackLineColumn = true;
 }
 
@@ -297,6 +297,15 @@ void StringReader::fillBuff() {
 }
 
 void StringReader::updateLineColumn(uint32_t c) {
+#if (WAGGLE_CHAR_TYPE_SIZEOF == 1)
+	// A column is a character, not a byte (ADR-0029): a UTF-8 continuation byte stays in the column
+	// of the byte that starts its character.
+	if ((c & 0xc0) == 0x80) {
+		bufline[bufpos] = line;
+		bufcolumn[bufpos] = column;
+		return;
+	}
+#endif
 	column++;
 	if (prevCharIsLF) {
 		prevCharIsLF = false;

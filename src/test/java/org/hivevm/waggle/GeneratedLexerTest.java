@@ -152,9 +152,52 @@ class GeneratedLexerTest {
         }
     }
 
+    /**
+     * Positions count characters and a tab is one column (ADR-0029). The C++ target is checked
+     * against the same text in CppCompilesTest. "\uD83D\uDE00" is one character in two UTF-16
+     * units: its token ends where it starts, and the next one starts one column later.
+     */
+    @Test
+    void columnsCountCharacters(@TempDir Path dir) throws Exception {
+        var lexer = compile(dir, "Pos.waggle", """
+                grammar Pos;
+
+                options {
+                  JAVA_PACKAGE: "org.example"
+                }
+
+                Input = ( <WORD> | <SMILE> )* <EOF> ;
+
+                SKIP = " " | "\\t" | "\\n" ;
+
+                TOKEN = < WORD: (["a"-"z", "\u00e4"])+ > | < SMILE: "\uD83D\uDE00" > ;
+                """);
+        assertEquals(List.of("ab@1:1-1:2", "\u00e4@1:4-1:4", "\u00e4c@1:6-1:7",
+                        "\uD83D\uDE00@2:1-2:1", "d@2:2-2:2"),
+                lexer.positions("ab\t\u00e4 \u00e4c\n\uD83D\uDE00d"));
+    }
+
     /** A compiled lexer, loaded in its own class loader. */
     private record GeneratedLexer(Constructor<?> lexer, Constructor<?> stream,
                                   Constructor<?> provider, Method next, String[] images) {
+
+        /** The tokens up to end of input, each as {@code image@line:column-line:column}. */
+        List<String> positions(String input) throws Exception {
+            var tokens = new ArrayList<String>();
+            var manager = this.lexer.newInstance(this.stream.newInstance(this.provider.newInstance(input)));
+            while (true) {
+                var token = this.next.invoke(manager);
+                var type = token.getClass();
+                if (type.getField("kind").getInt(token) == 0) {
+                    return tokens;
+                }
+                tokens.add(type.getField("image").get(token) + "@"
+                        + type.getField("beginLine").getInt(token) + ":"
+                        + type.getField("beginColumn").getInt(token) + "-"
+                        + type.getField("endLine").getInt(token) + ":"
+                        + type.getField("endColumn").getInt(token));
+            }
+        }
 
         /**
          * The tokens up to end of input, each as {@code tokenImage:image}, and {@code error} for a

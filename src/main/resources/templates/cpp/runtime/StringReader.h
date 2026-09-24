@@ -136,7 +136,7 @@ private:
 	int                available			= 0;
 	int                maxNextCharInd		= 0;
 	int                inBuf            = 0;
-	int                tabSize			= 8;
+	int                tabSize			= 1;
 	bool               trackLineColumn	= true;
 	InputStream *      inputStream    	= nullptr;
 	bool               deleteStream		= false;

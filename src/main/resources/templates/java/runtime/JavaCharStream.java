@@ -198,6 +198,13 @@ class JavaCharStream {
 //@if(KEEP_LINE_COLUMN)
 
 	protected void UpdateLineColumn(char c) {
+		// A column is a character, not a UTF-16 unit (ADR-0029): the second half of a surrogate
+		// pair stays in the column of the first.
+		if (Character.isLowSurrogate(c)) {
+			this.bufline[this.bufpos] = this.line;
+			this.bufcolumn[this.bufpos] = this.column;
+			return;
+		}
 		this.column++;
 
 		if (this.prevCharIsLF) {
