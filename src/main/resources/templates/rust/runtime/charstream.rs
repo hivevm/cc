@@ -205,8 +205,14 @@ impl<'a> CharStream<'a> {
 			self.adjust_buff_size();
 		}
 
+//@if(JAVA_UNICODE_ESCAPE)
 		let mut c: char = self.read_byte()?;
+//@else
+		let c: char = self.read_byte()?;
+//@fi
 		self.buffer[self.bufpos as usize] = c;
+//@if(JAVA_UNICODE_ESCAPE)
+		// Java's Unicode escapes are decoded only when the grammar asks for it (ADR-0029).
 		if self.buffer[self.bufpos as usize] == '\\' {
 //@if(KEEP_LINE_COLUMN)
 			self.update_line_column(c);
@@ -287,12 +293,12 @@ impl<'a> CharStream<'a> {
 				self.backup(back_slash_cnt - 1);
 				return Ok('\\');
 			}
-		} else {
-//@if(KEEP_LINE_COLUMN)
-			self.update_line_column(c);
-//@fi
-			return Ok(c);
 		}
+//@fi
+//@if(KEEP_LINE_COLUMN)
+		self.update_line_column(c);
+//@fi
+		Ok(c)
 	}
 
 	pub fn backup(&mut self, amount: usize) {

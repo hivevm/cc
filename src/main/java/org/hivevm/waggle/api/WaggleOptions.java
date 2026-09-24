@@ -55,6 +55,7 @@ public class WaggleOptions implements Options {
         temp.add(new OptionInfo(Waggle.FORCE_LA_CHECK, Boolean.FALSE));
         temp.add(new OptionInfo(Waggle.CACHE_TOKENS, Boolean.FALSE));
         temp.add(new OptionInfo(Waggle.KEEP_LINE_COLUMN, Boolean.TRUE));
+        temp.add(new OptionInfo(Waggle.JAVA_UNICODE_ESCAPE, Boolean.FALSE));
 
         temp.add(new OptionInfo(Waggle.OUTPUT_DIRECTORY, "."));
         temp.add(new OptionInfo(Waggle.CODE_GENERATOR, WaggleOptions.OUTPUT_LANGUAGE_JAVA));

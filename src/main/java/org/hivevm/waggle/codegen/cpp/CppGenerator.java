@@ -3,6 +3,9 @@
 
 package org.hivevm.waggle.codegen.cpp;
 
+import org.hivevm.waggle.api.GenerationException;
+import org.hivevm.waggle.api.ParserRequest;
+import org.hivevm.waggle.api.Waggle;
 import org.hivevm.waggle.codegen.FileGenerator;
 import org.hivevm.waggle.codegen.GeneratorName;
 import org.hivevm.waggle.codegen.GeneratorProvider;
@@ -18,6 +21,14 @@ import java.util.Set;
  */
 @GeneratorName("Cpp")
 public class CppGenerator extends GeneratorProvider {
+
+    @Override
+    protected final void prepare(ParserRequest request) {
+        if (request.options().booleanValue(Waggle.JAVA_UNICODE_ESCAPE)) {
+            // The C++ reader has no escape decoding yet (ADR-0029, README).
+            throw new GenerationException("JAVA_UNICODE_ESCAPE is not supported for the C++ target.");
+        }
+    }
 
     @Override
     public final Optional<TreeEmitter> treeSupport() {

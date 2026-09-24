@@ -49,6 +49,8 @@ public interface Waggle {
     String OUTPUT_DIRECTORY = "OUTPUT_DIRECTORY";
     String CODE_GENERATOR = "CODE_GENERATOR";
     String KEEP_LINE_COLUMN = "KEEP_LINE_COLUMN";
+    /** Decode Java-style Unicode escapes (a backslash, "u", four hex digits) before lexing (ADR-0029). */
+    String JAVA_UNICODE_ESCAPE = "JAVA_UNICODE_ESCAPE";
     String DEPTH_LIMIT = "DEPTH_LIMIT";
 
     String BASE_LEXER = "BASE_LEXER";

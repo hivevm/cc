@@ -106,9 +106,15 @@ parserProject {
   automaton and simulates it, returning the tokens. It is meant for trying a lexical specification
   out and for testing one, not as a production parser ([ADR-0020](docs/adr/0020-interpreted-mode.md)).
 
-* HiveVM Waggle also includes JJDoc, a tool that converts grammar files to documentation files, optionally in HTML.
+* HiveVM Waggle also includes JJDoc, a tool that writes the productions of a grammar as BNF.
 
 * HiveVM Waggle offers many options to customize its behavior and the behavior of the generated parsers. Examples of such options are the kinds of Unicode processing to perform on the input stream, the number of tokens of ambiguity checking to perform etc.
+
+* Token positions count characters, 1-based, with a tab as one column, in every target
+  ([ADR-0029](docs/adr/0029-one-character-model-across-targets.md)). A Java-style Unicode escape
+  (a backslash, `u` and four hex digits) in the input is ordinary text unless the grammar sets
+  `JAVA_UNICODE_ESCAPE: true`. The Java target always decoded it before; a grammar that relied on that
+  has to set the option now.
 
 * HiveVM Waggle error reporting is among the best in parser generators. HiveVM Waggle generated parsers are able to clearly point out the location of parse errors with complete diagnostic information.
 
@@ -146,6 +152,14 @@ to be discovered.
 
 * **`NODE_FACTORY` is not supported for C++.** The C++ node classes have no `jjtCreate` for a
   factory to call, so a C++ grammar that sets it is rejected.
+
+* **`JAVA_UNICODE_ESCAPE` is supported for Java only.** The C++ and Rust readers have no escape
+  decoding yet, so a grammar for either target that sets it is rejected
+  ([ADR-0029](docs/adr/0029-one-character-model-across-targets.md)).
+
+* **Characters beyond U+FFFF do not match in C++ and Rust yet.** The grammar model stores them as two
+  UTF-16 units, while the C++ and Rust lexers read code points. ADR-0029 moves the model to code
+  points; until then such literals and ranges work in the Java target only.
 
 
 ## Example

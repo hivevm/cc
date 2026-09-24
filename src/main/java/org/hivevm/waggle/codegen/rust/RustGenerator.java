@@ -3,6 +3,7 @@
 
 package org.hivevm.waggle.codegen.rust;
 
+import org.hivevm.waggle.api.GenerationException;
 import org.hivevm.waggle.api.Waggle;
 import org.hivevm.waggle.api.ParserRequest;
 import org.hivevm.waggle.codegen.FileGenerator;
@@ -48,6 +49,10 @@ public class RustGenerator extends GeneratorProvider {
     @Override
     protected final void prepare(ParserRequest request) {
         var options = request.options();
+        if (options.booleanValue(Waggle.JAVA_UNICODE_ESCAPE)) {
+            // The Rust character stream has no escape decoding yet (ADR-0029, README).
+            throw new GenerationException("JAVA_UNICODE_ESCAPE is not supported for the Rust target.");
+        }
         if (options.stringValue(Waggle.RUST_MODULE).isEmpty()) {
             options.set(Waggle.RUST_MODULE,
                     request.getParserName().toLowerCase(Locale.ROOT));

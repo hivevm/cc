@@ -16,6 +16,7 @@ class JavaCharStream {
 
 	private static final int BUFFER_SIZE = 4096;
 
+//@if(JAVA_UNICODE_ESCAPE)
 	static int hexval(char c) throws java.io.IOException {
 		return switch (c) {
 			case '0' -> 0;
@@ -37,6 +38,7 @@ class JavaCharStream {
 			default -> throw new java.io.IOException(); // Should never come here
 		};
 	}
+//@fi
 
 	/**
 	 * Position in buffer.
@@ -259,7 +261,10 @@ class JavaCharStream {
 			AdjustBuffSize();
 		}
 
-		if ((this.buffer[this.bufpos] = c = ReadByte()) == '\\') {
+		this.buffer[this.bufpos] = c = ReadByte();
+//@if(JAVA_UNICODE_ESCAPE)
+		// Java's Unicode escapes are decoded only when the grammar asks for it (ADR-0029).
+		if (c == '\\') {
 //@if(KEEP_LINE_COLUMN)
 			UpdateLineColumn(c);
 //@fi
@@ -339,12 +344,12 @@ class JavaCharStream {
 				backup(backSlashCnt - 1);
 				return '\\';
 			}
-		} else {
-//@if(KEEP_LINE_COLUMN)
-			UpdateLineColumn(c);
-//@fi
-			return c;
 		}
+//@fi
+//@if(KEEP_LINE_COLUMN)
+		UpdateLineColumn(c);
+//@fi
+		return c;
 	}
 
 	/**

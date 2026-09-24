@@ -177,6 +177,33 @@ class GeneratedLexerTest {
                 lexer.positions("ab\t\u00e4 \u00e4c\n\uD83D\uDE00d"));
     }
 
+    /**
+     * A Unicode escape in the input is text unless the grammar sets JAVA_UNICODE_ESCAPE
+     * (ADR-0029). Java decoded it always, with no way to turn that off.
+     */
+    @Test
+    void unicodeEscapesAreDecodedOnlyWhenAskedFor(@TempDir Path dir) throws Exception {
+        var grammar = """
+                grammar Esc;
+
+                options {
+                  JAVA_PACKAGE: "org.example"
+                }
+
+                Input = ( <WORD> )* <EOF> ;
+
+                TOKEN = < WORD: (["a"-"z", "0"-"9", "\\\\"])+ > ;
+                """;
+        var input = "\\u0061b";
+
+        assertEquals(List.of("<WORD>:" + input),
+                compile(dir.resolve("off"), "Esc.waggle", grammar).tokens(input));
+        assertEquals(List.of("<WORD>:ab"), compile(dir.resolve("on"), "Esc.waggle",
+                grammar.replace("  JAVA_PACKAGE: \"org.example\"",
+                        "  JAVA_PACKAGE: \"org.example\",\n  JAVA_UNICODE_ESCAPE: true"))
+                .tokens(input));
+    }
+
     /** A compiled lexer, loaded in its own class loader. */
     private record GeneratedLexer(Constructor<?> lexer, Constructor<?> stream,
                                   Constructor<?> provider, Method next, String[] images) {

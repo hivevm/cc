@@ -5,8 +5,10 @@ package org.hivevm.waggle;
 
 import org.hivevm.waggle.api.ParserBuilder;
 
+import org.hivevm.waggle.api.GenerationException;
 import org.hivevm.waggle.api.Language;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.io.TempDir;
@@ -143,6 +145,17 @@ class MultiTargetGenerationTest {
         var lexer = Files.readString(target.resolve("example").resolve("lexer.rs"));
         assertTrue(lexer.contains("jjbeenHere: [false; 1]"), "no loop guard of one entry per state");
         assertTrue(!lexer.contains("[false, "), "an array literal where a repeat is meant");
+    }
+
+    /** Only Java decodes Unicode escapes yet; the others say so rather than ignore the option. */
+    @ParameterizedTest
+    @EnumSource(value = Language.class, names = {"CPP", "RUST"})
+    void unicodeEscapesAreRejectedWhereNotImplemented(Language language, @TempDir Path dir) {
+        var grammar = MultiTargetGenerationTest.GRAMMAR.replace("  JAVA_PACKAGE: \"org.example\"",
+                "  JAVA_PACKAGE: \"org.example\",\n  JAVA_UNICODE_ESCAPE: true");
+        var error = assertThrows(GenerationException.class, () -> generate(language, dir, grammar));
+        assertTrue(error.getMessage().contains("JAVA_UNICODE_ESCAPE is not supported"),
+                error.getMessage());
     }
 
     /** The same grammar, but with the token-manager trace switched on. */
